@@ -1,0 +1,11 @@
+TAGS
+*.o
+*.dep
+*~
+*.lib
+*.exe
+latex/
+doxygen/
+Makefile
+*.user
+*.proj
