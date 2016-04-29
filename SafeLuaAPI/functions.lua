@@ -1,13 +1,14 @@
---- ## SafeLuaAPI.functions, contains the API function descriptions
+--- SafeLuaAPI.functions, contains the API function descriptions.
 --
 -- @author Demi Marie Obenour
 -- @copyright 2016
 -- @license MIT/X11
 -- @module functions
 local functions = {}
-local pairs = pairs
-local type = type
-local pretty = require 'pl/pretty'
+
+local pairs, type, setmetatable, error = pairs, type, setmetatable, error
+local format = string.format
+local pretty = pcall(require, 'pl/pretty')
 if module then
    module 'functions'
 end
@@ -17,9 +18,9 @@ local _ENV = nil
 --- The functions needing wrappers in the main library
 functions.api_functions_needing_wrappers = {
    -- lua_call is omitted (use lua_pcall instead)
-   -- lua_call = { args = {'int', 'int'}, retval = 'int'},
+   -- lua_call = { args = {'lua_State *L', 'int', 'int'}, retval = 'int'},
    lua_checkstack = {
-      args = {'int n'},
+      args = {'lua_State *L', 'int n'},
       retval = 'int',
       stack_in = {},
       popped = 0,
@@ -27,7 +28,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_concat = {
-      args = {'int n'},
+      args = {'lua_State *L', 'int n'},
       retval = 'void',
       stack_in = {},
       popped = 'n',
@@ -35,7 +36,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_createtable = {
-      args = { 'int array_size', 'int hash_size'},
+      args = {'lua_State *L',  'int array_size', 'int hash_size'},
       retval = 'void',
       stack_in = {},
       popped = 0,
@@ -43,15 +44,15 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_dump = {
-      args = {'lua_Writer writer', 'void* data'},
-      retval = 'void',
+      args = {'lua_State *L', 'lua_Writer writer', 'void* data'},
+      retval = 'int',
       stack_in = {},
       popped = 0,
       pushed = 0,
    },
 
    lua_equal = {
-      args = {'int index1', 'int index2'},
+      args = {'lua_State *L', 'int index1', 'int index2'},
       retval = 'int',
       stack_in = {'index1', 'index2'},
       popped = 0,
@@ -59,7 +60,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    -- lua_error = {
-   --    args = {},
+   --    args = {'lua_State *L', },
    --    retval = 'void',
    --    stack_in = {},
    --    popped = 1,
@@ -67,7 +68,7 @@ functions.api_functions_needing_wrappers = {
    -- },
 
    lua_gc = {
-      args = {'int what', 'int data'},
+      args = {'lua_State *L', 'int what', 'int data'},
       retval = 'int',
       stack_in = {},
       popped = 0,
@@ -75,7 +76,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_getfield = {
-      args = {'int index', 'const char* key'},
+      args = {'lua_State *L', 'int index', 'const char* key'},
       retval = 'void',
       stack_in = {'index'},
       popped = 0,
@@ -83,7 +84,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_getglobal = {
-      args = {'const char *name'},
+      args = {'lua_State *L', 'const char *name'},
       retval = 'void',
       stack_in = {},
       popped = 0,
@@ -91,7 +92,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_gettable = {
-      args = {'int depth'},
+      args = {'lua_State *L', 'int depth'},
       retval = 'void',
       stack_in = 'depth',
       popped = 1,
@@ -99,7 +100,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_lessthan = {
-      args = {'int index1', 'int index2'},
+      args = {'lua_State *L', 'int index1', 'int index2'},
       retval = 'int',
       stack_in = {'index1', 'index2'},
       popped = 0,
@@ -107,7 +108,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_newtable = {
-      args = {},
+      args = {'lua_State *L', },
       retval = 'void',
       stack_in = {},
       popped = 0,
@@ -115,15 +116,15 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_newthread = {
-      args = {},
-      retval = 'void',
+      args = {'lua_State *L', },
+      retval = 'lua_State *',
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
    lua_newuserdata = {
-      args = {'size_t size'},
+      args = {'lua_State *L', 'size_t size'},
       retval = 'void*',
       stack_in = {},
       popped = 0,
@@ -131,7 +132,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_next = {
-      args = {'int table_index'},
+      args = {'lua_State *L', 'int table_index'},
       retval = 'int',
       stack_in = 'table_index',
       popped = 1,
@@ -139,7 +140,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_pushcclosure = {
-      args = {'lua_CFunction function', 'int number_upvalues'},
+      args = {'lua_State *L', 'lua_CFunction function', 'int number_upvalues'},
       retval = 'void',
       stack_in = {},
       popped = 'number_upvalues',
@@ -147,7 +148,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_pushcfunction = {
-      args = {'lua_CFunction function'},
+      args = {'lua_State *L', 'lua_CFunction function'},
       retval = 'void',
       stack_in = {},
       popped = 0,
@@ -155,7 +156,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_pushlstring = {
-      args = {'const char *string', 'size_t len'},
+      args = {'lua_State *L', 'const char *string', 'size_t len'},
       retval = 'void',
       stack_in = {},
       popped = 0,
@@ -163,7 +164,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_pushstring = {
-      args = {'const char *string'},
+      args = {'lua_State *L', 'const char *string'},
       retval = 'void',
       stack_in = {},
       popped = 0,
@@ -173,7 +174,7 @@ functions.api_functions_needing_wrappers = {
    -- TODO: handle va_list correctly
    --
    -- lua_pushvfstring = {
-   --    args = {'const char *fmt', 'va_list argp'},
+   --    args = {'lua_State *L', 'const char *fmt', 'va_list argp'},
    --    retval = 'const char *',
    --    stack_in = {},
    --    popped = 0,
@@ -181,7 +182,7 @@ functions.api_functions_needing_wrappers = {
    -- },
 
    lua_rawset = {
-      args = {'int index'},
+      args = {'lua_State *L', 'int index'},
       retval = 'void',
       stack_in = 'index',
       popped = 2,
@@ -189,7 +190,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_rawseti = {
-      args = {'int index', 'int n'},
+      args = {'lua_State *L', 'int index', 'int n'},
       retval = 'void',
       stack_in = 'index',
       popped = 1,
@@ -197,7 +198,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_register = {
-      args = {'const char *name', 'lua_CFunction function'},
+      args = {'lua_State *L', 'const char *name', 'lua_CFunction function'},
       retval = 'void',
       stack_in = {},
       popped = 0,
@@ -205,7 +206,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_setfield = {
-      args = {'int index', 'const char *key'},
+      args = {'lua_State *L', 'int index', 'const char *key'},
       retval = 'void',
       stack_in = 'key',
       popped = 1,
@@ -213,7 +214,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_setglobal = {
-      args = {'char *key'},
+      args = {'lua_State *L', 'char *key'},
       retval = 'void',
       stack_in = {},
       popped = 1,
@@ -221,7 +222,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_settable = {
-      args = {'int index'},
+      args = {'lua_State *L', 'int index'},
       retval = 'void',
       stack_in = 'index',
       pushed = 0,
@@ -229,7 +230,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_tolstring = {
-      args = {'int index', 'size_t *length'},
+      args = {'lua_State *L', 'int index', 'size_t *length'},
       retval = 'const char *',
       stack_in = 'index',
       popped = 0,
@@ -237,7 +238,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    lua_tostring = {
-      args = {'int index'},
+      args = {'lua_State *L', 'int index'},
       retval = 'const char *',
       stack_in = 'index',
       popped = 0,
@@ -246,7 +247,7 @@ functions.api_functions_needing_wrappers = {
 
    -- The debug interface
    lua_getinfo = {
-      args = {'const char *what', 'lua_Debug *activation_record'},
+      args = {'lua_State *L', 'const char *what', 'lua_Debug *activation_record'},
       retval = 'int',
       stack_in = {},
       pushed = "(args->what[0] == '<' ? 1 : 0)",
@@ -287,32 +288,32 @@ functions.auxlib_functions_needing_wrappers = {
    -- Most of the argument checking functions are also omitted.  It is assumed
    -- that clients will use the provided trampoline to throw errors.
    luaL_callmeta = {
-      args = {'int', 'CPchar'},
+      args = {'lua_State *L', 'int', 'CPchar'},
       retval = 'int',
    },
    luaL_getmetafield = {
-      args = {'int', 'CPchar'},
+      args = {'lua_State *L', 'int', 'CPchar'},
       retval = 'int',
    },
    luaL_loadbuffer = {
-      args = {'CPchar', 'size_t', 'CPchar'},
+      args = {'lua_State *L', 'CPchar', 'size_t', 'CPchar'},
       retval = 'int',
    },
-   lua_newthread = {
-      args = {},
-      retval = 'lua_State',
-      stack_in = {},
-      pushed = 1,
-      popped = 0,
-   },
-   luaL_openlibs = { args = {}},
-   luaL_newmetatable = { args = {'char*'}, retval = 'int'},
-   luaL_ref = { args = {'int'}, retval = 'int'},
-   luaL_loadfile = { args = {'int', 'char*'}, retval = 'int'},
-   luaL_loadstring = { args = {'int', 'char*'}, retval = 'int'},
-   luaL_where = { args = { 'int' }},
+   luaL_openlibs = { args = {'lua_State *L', }},
+   luaL_newmetatable = { args = {'lua_State *L', 'char*'}, retval = 'int'},
+   luaL_ref = { args = {'lua_State *L', 'int'}, retval = 'int'},
+   luaL_loadfile = { args = {'lua_State *L', 'int', 'char*'}, retval = 'int'},
+   luaL_loadstring = { args = {'lua_State *L', 'int', 'char*'}, retval = 'int'},
+   luaL_where = { args = {'lua_State *L',  'int' }},
 }
 
+local mymetatable = {}
+function mymetatable:__index(index)
+   error(format('Attempt to access non-existent field %q', index), 2)
+end
+function mymetatable:__newindex(index)
+   error(format('Attempt to create non-existent field %q', index), 2)
+end
 for _, i in pairs(functions) do
    for _, j in pairs(i) do
       local stack_in = j.stack_in
@@ -327,6 +328,7 @@ for _, i in pairs(functions) do
       if j.popped == nil then
          j.popped = 0
       end
+      setmetatable(j, mymetatable)
    end
 end
 -- pretty.dump(functions)

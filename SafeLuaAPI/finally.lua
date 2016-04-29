@@ -13,7 +13,7 @@ local error = error
 local rawget = rawget
 
 if rawget(_G, 'setfenv') then
-   setfenv(1, nil)
+   setfenv(1, {})
 end
 
 local function finally_helper(cleanup, cleanup_arg, is_okay, ...)

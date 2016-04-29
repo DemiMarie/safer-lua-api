@@ -16,31 +16,49 @@ local stdout, stderr = io.stdout, io.stderr
 local pairs, ipairs, next = pairs, ipairs, next
 local tostring = tostring
 local io = io
-local type = type
+local type, tonumber, tostring = type, tonumber, tostring
 local string = string
 local os = os
-local pcall = pcall
+local pcall, xpcall = pcall, xpcall
 local print, error = print, error
-
-local strict = require 'pl/strict'
-local pretty = require 'pl/pretty'
+local getmetatable, setmetatable = getmetatable, setmetatable
+if module then
+   module 'generator'
+end
+local _ENV = nil
+local strict, err = pcall(require, 'pl/strict')
+local err, pretty = pcall(require, 'pl/pretty')
+pretty = err and pretty
 
 local finally = require 'SafeLuaAPI/finally'
 
-local function emit_struct(handle, name, arguments)
-   if #arguments == 0 then
+local parse_prototype = require 'SafeLuaAPI/parse_prototype'
+local parse_prototypes = parse_prototype.extract_args
+
+if pretty then
+   pretty.dump { parse_prototypes('int main(int argc, char **argv)') }
+end
+
+local metatable = { __index = generator, __metatable = nil }
+
+local function check_metatable(table_)
+   return getmetatable(table_) == metatable or
+      error('Incorrect type passed to binder API', 2)
+end
+
+function generator:emit_struct(name, arguments)
+   check_metatable(self)
+   local handle = self.handle
+   if #arguments == 1 then
       return
    end
    local x = {}
    handle:write 'STRUCT_STATIC struct Struct_'
    handle:write(name)
    handle:write ' {\n'
-   local n = 1
-   for i, j in pairs(arguments) do
-      n = n + 1
-      --print(j)
+   for i = 2, #arguments do
       handle:write '  '
-      handle:write(j)
+      handle:write(arguments[i])
       handle:write ';\n'
    end
    handle:write '};\n'
@@ -51,91 +69,111 @@ local function emit_arglist(arguments)
    if len == 0 then
       return '', '', 'L'
    end
-   local x, y, z = {''}, {}, {'L'}
+   local x, y, z = {}, {}, {'L'}
    for i, j in ipairs(arguments) do
-      -- print('[ARGUMENT] '..j)
-      local argindex, end_ = find(j, '[_%w]+%s*$')
-      local argname = sub(j, argindex, end_)
-      -- print('[ARGNAME] '..argname)
-      x[i+1] = j
-      y[i] = argname
-      z[i+1] = 'args->'..argname
+      if i ~= 1 then
+         -- print('[ARGUMENT] '..j)
+         local argname = match(j, '[_%w]+%s*$')
+         -- print('[ARGNAME] '..argname)
+         y[i-1] = argname
+         z[i] = 'args->'..argname
+      end
+      x[i] = j
    end
    return concat(x, ', '), concat(y, ', '), concat(z, ', ')
 end
 
-local function check_ident(ident)
+function generator.check_ident(ident)
    return find(ident, '^[_%a][_%w]*$') or
       error(('String %q is not an identifier'):format(ident))
 end
 
-local function check_type(ty)
+function generator.check_type(ty)
    if not (find(ty, '^[%s_%w%b()%*]*$') and find(ty, '^[%s_%w%(%)%*]*$')) then
       error(('String %q is not a valid C type'):format(ty))
    end
 end
 
---- Generates a wrapper for API function `name`
+local check_ident, check_type = generator.check_ident, generator.check_type
+
+function generator:emit_function_prototype(name, prototype)
+   check_metatable(self)
+   local c_source_text = '#ifndef '..name..'\n'..prototype..'\n#endif\n'
+   self.handle:write(c_source_text)
+end
+
+--- Generates a wrapper for API function `name`.
 -- @tparam string name The function name.
--- @tparam {string = string, ...} arguments The function arguments
--- @tparam string retval the return type of the function
+-- @tparam string popped The number of arguments popped from the Lua stack.
+-- @tparam string pushed The number of arguments pushed onto the Lua stack.
+-- @tparam {string,...} stack_in A list of arguments that name stack slots
+--  used by the function.
+-- @tparam string return_type The return type of the function.
+-- @tparam {string,...} arguments The argument names and types for the function.
 -- @treturn string The wrapper C code for the function
-local function emit_wrapper(handle, rettype, name, retcount, argcount, arguments)
-   rettype = rettype or 'void'
+function generator:emit_wrapper(name, popped, pushed, stack_in,
+                                return_type, arguments)
+   check_metatable(self)
+   assert(#arguments > 0, 'No Lua API function takes no arguments')
+
    -- Consistency checks on the arguments
-   check_type(rettype)
+   check_type(return_type)
    check_ident(name)
+   tonumber(popped)
+   tonumber(pushed)
+
+   self:emit_function_prototype(name, return_type, arguments)
 
    -- Get the various lists
    local prototype_args, initializers, call_string = emit_arglist(arguments)
 
    -- C needs different handling of `void` than of other types.  Boo.
    local trampoline_type, retcast_type = 'TRAMPOLINE(', ', RETCAST_VALUE, '
-   if rettype == 'void' then
+   if return_type == 'void' then
       trampoline_type, retcast_type = 'VOID_TRAMPOLINE(', ', RETCAST_VOID, '
    end
 
    -- C does not allow empty structs or initializers.  Boo.
    local local_struct = ', DUMMY_LOCAL_STRUCT'
-   if #arguments ~= 0 then
+   if #arguments ~= 1 then
       -- Actually emit the struct
-      emit_struct(handle, name, arguments)
+      self:emit_struct(name, arguments)
+
       -- Use a different macro for the local struct (one that actually
       -- assigns to thread-local storage)
       local_struct = ', LOCAL_STRUCT'
    end
 
-   local args = concat({name, argcount}, ', ')
-   return concat {
-      trampoline_type, rettype, ', ', name, ', ', retcount, ', ', call_string,')\
+   -- local args = concat({name, argcount}, ', ')
+   self.handle:write(concat {
+      trampoline_type, return_type, ', ', name, ', ', pushed, ', ',
+      call_string,')\
 #define ARGLIST ', prototype_args, '\
-EMIT_WRAPPER(', rettype, ', ', name, ', ', argcount,
-      local_struct, retcast_type, initializers, ')\
-#undef ARGLIST\n\n' }
+EMIT_WRAPPER(', return_type, ', ', name, ', ', popped, local_struct, retcast_type, initializers, ')\n#undef ARGLIST\n\n'
+   })
 end
 
-local function generate_wrapper(handle, name, arguments, pushed, popped, retval)
-   assert(type(name) == 'string', '`name` must be a string')
-   -- assert(type(arguments) == 'table' and #arguments == 0,
-   --        '`arguments` must be a table with an empty array part')
-   return (emit_wrapper(handle, retval, name, tostring(pushed), popped, arguments))
-end
-
-local function generate(handle, table_)
+function generator:generate(table_)
    --pretty.dump(table_)
+   check_metatable(self)
    for i, j in pairs(table_) do
       assert(type(i) == 'string')
-      --print(j)
-      handle:write(generate_wrapper(handle, i, j.args, j.pushed, j.popped, j.retval))
+      self:emit_wrapper(i, j.popped, j.pushed, j.stack_in,
+                        j.retval, j.args)
    end
 end
 
-generator.generate = generate
+function generator.new(handle)
+   return setmetatable({ handle = handle }, metatable)
+end
+
+local generate = generator.generate
 
 --- Generate C code to a given filename
 -- @tparam string filename The name of the file to write the C code to.
+-- @tparam {} table_ The table containing function descriptions
 function generator.generate_to_file(filename, table_)
-   return finally.with_file(filename, 'w', generate_to_handle)
+   return finally.with_file(filename, 'w', generate)
 end
 
 return generator
