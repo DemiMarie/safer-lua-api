@@ -96,9 +96,10 @@ end
 
 local check_ident, check_type = generator.check_ident, generator.check_type
 
-function generator:emit_function_prototype(name, prototype)
+function generator:emit_function_prototype(name, return_type, argument_list)
    check_metatable(self)
-   local c_source_text = '#ifndef '..name..'\n'..prototype..'\n#endif\n'
+   local c_source_text = '#ifndef '..name..'\n'..
+      return_type..' '..name..'('..concat(argument_list, ', ')..');\n#endif\n'
    self.handle:write(c_source_text)
 end
 
