@@ -9,3 +9,9 @@ doxygen/
 Makefile
 *.user
 *.proj
+
+.info.toml.swp
+./
+bindings.a
+bindings.i
+bindings.so
