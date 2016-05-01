@@ -21,12 +21,13 @@ local _ENV = {}
 
 function parse_prototype.extract_args(str)
    local start_of_argument_list, _, function_name, argument_list
-      = find((str), '(%w+)%s*(%b())%s*$')
+      = find((str), '([%w_]+)%s*(%b())%s*$')
    if not start_of_argument_list then
       error(format('No argument list in %q', str), 2)
    end
    argument_list = argument_list:sub(2, #argument_list - 1)
-   local return_type = str:sub(1, start_of_argument_list - 1)
+   local return_type
+      = str:sub(1, start_of_argument_list - 1):gsub('^%s*',''):gsub('%s*$', '')
    local count = 0
    local start = 1
    local args = {}
@@ -39,7 +40,7 @@ function parse_prototype.extract_args(str)
       args[count] = argument_list:sub(start_, end_)
       start = end_ + 1
    end
-   return return_type, function_name, argument_list, args
+   return return_type, function_name, args
 end
 
 return parse_prototype

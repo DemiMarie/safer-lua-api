@@ -1,0 +1,4 @@
+<functions>
+  <function>int lua_checkstack(int n)</function>
+  <function popped='n'>int lua_concat(int n)</function>
+</functions>

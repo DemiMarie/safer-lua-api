@@ -22,10 +22,8 @@ local os = os
 local pcall, xpcall = pcall, xpcall
 local print, error = print, error
 local getmetatable, setmetatable = getmetatable, setmetatable
-if module then
-   module 'generator'
-end
-local _ENV = nil
+
+require 'pl/strict'
 local strict, err = pcall(require, 'pl/strict')
 local err, pretty = pcall(require, 'pl/pretty')
 pretty = err and pretty
@@ -49,15 +47,10 @@ end
 function generator:emit_struct(name, arguments)
    check_metatable(self)
    local handle = self.handle
-   if #arguments == 1 then
-      return
-   end
-   local x = {}
    handle:write 'STRUCT_STATIC struct Struct_'
    handle:write(name)
    handle:write ' {\n'
    for i = 2, #arguments do
-      handle:write '  '
       handle:write(arguments[i])
       handle:write ';\n'
    end
@@ -69,7 +62,7 @@ local function emit_arglist(arguments)
    if len == 0 then
       return '', '', 'L'
    end
-   local x, y, z = {}, {}, {'L'}
+   local y, z = {}, {'L'}
    for i, j in ipairs(arguments) do
       if i ~= 1 then
          -- print('[ARGUMENT] '..j)
@@ -78,9 +71,8 @@ local function emit_arglist(arguments)
          y[i-1] = argname
          z[i] = 'args->'..argname
       end
-      x[i] = j
    end
-   return concat(x, ', '), concat(y, ', '), concat(z, ', ')
+   return concat(arguments, ', '), concat(y, ', '), concat(z, ', ')
 end
 
 function generator.check_ident(ident)
@@ -96,10 +88,9 @@ end
 
 local check_ident, check_type = generator.check_ident, generator.check_type
 
-function generator:emit_function_prototype(name, return_type, argument_list)
+function generator:emit_function_prototype(name, prototype)
    check_metatable(self)
-   local c_source_text = '#ifndef '..name..'\n'..
-      return_type..' '..name..'('..concat(argument_list, ', ')..');\n#endif\n'
+   local c_source_text = '#ifndef '..name..'\n'..prototype..';\n#endif\n'
    self.handle:write(c_source_text)
 end
 
@@ -109,12 +100,12 @@ end
 -- @tparam string pushed The number of arguments pushed onto the Lua stack.
 -- @tparam {string,...} stack_in A list of arguments that name stack slots
 --  used by the function.
--- @tparam string return_type The return type of the function.
--- @tparam {string,...} arguments The argument names and types for the function.
+-- @tparam string prototype The function prototype for the function.
 -- @treturn string The wrapper C code for the function
-function generator:emit_wrapper(name, popped, pushed, stack_in,
-                                return_type, arguments)
+function generator:emit_wrapper(popped, pushed, stack_in, prototype)
    check_metatable(self)
+
+   local return_type, name, arguments = parse_prototype.extract_args(prototype)
    assert(#arguments > 0, 'No Lua API function takes no arguments')
 
    -- Consistency checks on the arguments
@@ -123,7 +114,7 @@ function generator:emit_wrapper(name, popped, pushed, stack_in,
    tonumber(popped)
    tonumber(pushed)
 
-   self:emit_function_prototype(name, return_type, arguments)
+   self:emit_function_prototype(name, prototype)
 
    -- Get the various lists
    local prototype_args, initializers, call_string = emit_arglist(arguments)
@@ -149,7 +140,7 @@ function generator:emit_wrapper(name, popped, pushed, stack_in,
    self.handle:write(concat {
       trampoline_type, return_type, ', ', name, ', ', pushed, ', ',
       call_string,')\
-#define ARGLIST ', prototype_args, '\
+#define ARGLIST ', prototype_args:gsub('\n', ' '), '\
 EMIT_WRAPPER(', return_type, ', ', name, ', ', popped, local_struct, retcast_type, initializers, ')\n#undef ARGLIST\n\n'
    })
 end
@@ -159,8 +150,8 @@ function generator:generate(table_)
    check_metatable(self)
    for i, j in pairs(table_) do
       assert(type(i) == 'string')
-      self:emit_wrapper(i, j.popped, j.pushed, j.stack_in,
-                        j.retval, j.args)
+      -- print(argument_list)
+      self:emit_wrapper(j.popped, j.pushed, j.stack_in, i)
    end
 end
 

@@ -19,41 +19,31 @@ local _ENV = nil
 functions.api_functions_needing_wrappers = {
    -- lua_call is omitted (use lua_pcall instead)
    -- lua_call = { args = {'lua_State *L', 'int', 'int'}, retval = 'int'},
-   lua_checkstack = {
-      args = {'lua_State *L', 'int n'},
-      retval = 'int',
-      stack_in = {},
-      popped = 0,
-      pushed = 0
-   },
-
-   lua_concat = {
-      args = {'lua_State *L', 'int n'},
-      retval = 'void',
-      stack_in = {},
-      popped = 'n',
-      pushed = 1
-   },
-
-   lua_createtable = {
-      args = {'lua_State *L',  'int array_size', 'int hash_size'},
-      retval = 'void',
-      stack_in = {},
-      popped = 0,
-      pushed = 1
-   },
-
-   lua_dump = {
-      args = {'lua_State *L', 'lua_Writer writer', 'void* data'},
-      retval = 'int',
+   ['int lua_checkstack(lua_State *L, int n)'] = {
       stack_in = {},
       popped = 0,
       pushed = 0,
    },
 
-   lua_equal = {
-      args = {'lua_State *L', 'int index1', 'int index2'},
-      retval = 'int',
+   ['void lua_concat(lua_State *L, int n)'] = {
+      stack_in = {},
+      popped = 'n',
+      pushed = 1
+   },
+
+   ['void lua_createtable(lua_State *L, int array_size, int hash_size)'] = {
+      stack_in = {},
+      popped = 0,
+      pushed = 1
+   },
+
+   ['int lua_dump(lua_State *L, lua_Writer writer, void* data)'] = {
+      stack_in = {},
+      popped = 0,
+      pushed = 0,
+   },
+
+   ['int lua_equal(lua_State *L, int index1, int index2)'] = {
       stack_in = {'index1', 'index2'},
       popped = 0,
       pushed = 0,
@@ -67,105 +57,80 @@ functions.api_functions_needing_wrappers = {
    --    pushed = 0,
    -- },
 
-   lua_gc = {
-      args = {'lua_State *L', 'int what', 'int data'},
-      retval = 'int',
+   ['int lua_gc(lua_State *L, int what, int data)'] = {
       stack_in = {},
       popped = 0,
       pushed = 0,
    },
 
-   lua_getfield = {
-      args = {'lua_State *L', 'int index', 'const char* key'},
-      retval = 'void',
+   ['void lua_getfield(lua_State *L, int index, const char* key)'] = {
       stack_in = {'index'},
       popped = 0,
       pushed = 1,
    },
 
-   lua_getglobal = {
-      args = {'lua_State *L', 'const char *name'},
-      retval = 'void',
+   ['void lua_getglobal(lua_State *L, const char *name)'] = {
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   lua_gettable = {
-      args = {'lua_State *L', 'int depth'},
-      retval = 'void',
+   ['void lua_gettable(lua_State *L, int depth)'] = {
       stack_in = 'depth',
       popped = 1,
       pushed = 1,
    },
 
-   lua_lessthan = {
-      args = {'lua_State *L', 'int index1', 'int index2'},
-      retval = 'int',
+   ['int lua_lessthan(lua_State *L, int index1, int index2)'] = {
       stack_in = {'index1', 'index2'},
       popped = 0,
       pushed = 0,
    },
 
-   lua_newtable = {
-      args = {'lua_State *L', },
-      retval = 'void',
+   ['void lua_newtable(lua_State *L)'] = {
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   lua_newthread = {
-      args = {'lua_State *L', },
-      retval = 'lua_State *',
+   ['lua_State *lua_newthread(lua_State *L)'] = {
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   lua_newuserdata = {
-      args = {'lua_State *L', 'size_t size'},
-      retval = 'void*',
+   ['void *lua_newuserdata(lua_State *L, size_t size)'] = {
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   lua_next = {
-      args = {'lua_State *L', 'int table_index'},
-      retval = 'int',
+   ['int lua_next(lua_State *L, int table_index)'] = {
       stack_in = 'table_index',
       popped = 1,
       pushed = '(2 * (0 != retval))',
    },
 
-   lua_pushcclosure = {
-      args = {'lua_State *L', 'lua_CFunction function', 'int number_upvalues'},
-      retval = 'void',
+   ['void lua_pushcclosure(lua_State *L, lua_CFunction function,\
+                       int number_upvalues)'] = {
       stack_in = {},
       popped = 'number_upvalues',
       pushed = 1,
    },
 
-   lua_pushcfunction = {
-      args = {'lua_State *L', 'lua_CFunction function'},
-      retval = 'void',
+   ['void lua_pushcfunction(lua_State *L, lua_CFunction function)'] = {
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   lua_pushlstring = {
-      args = {'lua_State *L', 'const char *string', 'size_t len'},
-      retval = 'void',
+   ['void lua_pushlstring(lua_State *L, const char *string, size_t len)'] = {
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   lua_pushstring = {
-      args = {'lua_State *L', 'const char *string'},
-      retval = 'void',
+   ['void lua_pushstring(lua_State *L, const char *string)'] = {
       stack_in = {},
       popped = 0,
       pushed = 1,
@@ -181,74 +146,58 @@ functions.api_functions_needing_wrappers = {
    --    pushed = 1,
    -- },
 
-   lua_rawset = {
-      args = {'lua_State *L', 'int index'},
-      retval = 'void',
+   ['void lua_rawset(lua_State *L, int index)'] = {
       stack_in = 'index',
       popped = 2,
       pushed = 0,
    },
 
-   lua_rawseti = {
-      args = {'lua_State *L', 'int index', 'int n'},
-      retval = 'void',
+   ['void lua_rawseti(lua_State *L, int index, int n)'] = {
       stack_in = 'index',
       popped = 1,
       pushed = 0,
    },
 
-   lua_register = {
-      args = {'lua_State *L', 'const char *name', 'lua_CFunction function'},
-      retval = 'void',
+   ['void lua_register(lua_State *L, const char *name, lua_CFunction function)']
+      = {
       stack_in = {},
       popped = 0,
       pushed = 0,
    },
 
-   lua_setfield = {
-      args = {'lua_State *L', 'int index', 'const char *key'},
-      retval = 'void',
+   ['void lua_setfield(lua_State *L, int index, const char *key)'] = {
       stack_in = 'key',
       popped = 1,
       pushed = 0,
    },
 
-   lua_setglobal = {
-      args = {'lua_State *L', 'char *key'},
-      retval = 'void',
+   ['void lua_setglobal(lua_State *L, char *key)'] = {
       stack_in = {},
       popped = 1,
       pushed = 0,
    },
 
-   lua_settable = {
-      args = {'lua_State *L', 'int index'},
-      retval = 'void',
+   ['void lua_settable(lua_State *L, int index)'] = {
       stack_in = 'index',
       pushed = 0,
       popped = 2,
    },
 
-   lua_tolstring = {
-      args = {'lua_State *L', 'int index', 'size_t *length'},
-      retval = 'const char *',
+   ['const char *lua_tolstring(lua_State *L, int index, size_t *length)'] = {
       stack_in = 'index',
       popped = 0,
       pushed = 0,
    },
 
-   lua_tostring = {
-      args = {'lua_State *L', 'int index'},
-      retval = 'const char *',
+   ['const char *lua_tostring(lua_State *L, int index)'] = {
       stack_in = 'index',
       popped = 0,
       pushed = 0,
    },
 
    -- The debug interface
-   lua_getinfo = {
-      args = {'lua_State *L', 'const char *what', 'lua_Debug *activation_record'},
-      retval = 'int',
+   ['int lua_getinfo(lua_State *L, const char *what,\
+                 lua_Debug *activation_record)'] = {
       stack_in = {},
       pushed = "(args->what[0] == '<' ? 1 : 0)",
       popped = '(get_popped(what))',
