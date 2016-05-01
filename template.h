@@ -1,9 +1,4 @@
-typedef char *Pchar;
-typedef void *Pvoid;
-
-typedef const Pchar CPchar;
-typedef const void *CPvoid;
-
+#include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
 #if 0
@@ -15,7 +10,7 @@ extern "C" {
 #define CAST(a, b) (static_cast<(a)>(b))
 
 #if __cplusplus >= 201103L
-static thread_local void *TLS;
+thread_local static void *TLS;
 #define HAS_STD_TLS 1
 #endif
 
@@ -25,7 +20,7 @@ static thread_local void *TLS;
 #define CAST(a, b) ((a)(b))
 
 #if __STDC_VERSION__ >= 201112L
-static _Thread_local void *TLS;
+_Thread_local static void *TLS;
 #define HAS_STD_TLS 1
 #endif
 
@@ -49,7 +44,7 @@ static int add_c_function(lua_State *L) {
 }
 
 #define TRAMPOLINE(rettype, name, retcount, ...)                               \
-   static int trampoline_##name(lua_State *L) {                                \
+   static int(trampoline_##name)(lua_State * L) {                              \
       struct Struct_##name *args = CAST(struct Struct_##name *, TLS);          \
       rettype retval = name(__VA_ARGS__);                                      \
       int number_return_values = (retcount);                                   \
@@ -58,7 +53,7 @@ static int add_c_function(lua_State *L) {
    }
 
 #define VOID_TRAMPOLINE(_, name, retcount, ...)                                \
-   static int trampoline_##name(lua_State *L) {                                \
+   static int(trampoline_##name)(lua_State * L) {                              \
       struct Struct_##name *args = CAST(struct Struct_##name *, TLS);          \
       name(__VA_ARGS__);                                                       \
       return (retcount);                                                       \
@@ -71,20 +66,45 @@ static int get_popped(const char *str) {
    bool seen_f = false, seen_L = false;
    while (true) {
       switch (*str) {
-         case 'L': seen_L = true; break;
-         case 'f': seen_f = true; break;
-         case '\0': return seen_L + seen_f;
+      case 'L':
+         seen_L = true;
+         break;
+      case 'f':
+         seen_f = true;
+         break;
+      case '\0':
+         return seen_L + seen_f;
       }
       str++;
    }
 }
 
-
 #define LOCAL_STRUCT(name, ...)                                                \
    struct Struct_##name local = {__VA_ARGS__};                                 \
-   do { TLS = CAST(void *, &local); } while(0)
+   do {                                                                        \
+      TLS = CAST(void *, &local);                                              \
+   } while (0)
 
-#define DUMMY_LOCAL_STRUCT(name, ...) do { } while(0)
+#define DUMMY_LOCAL_STRUCT(name, ...)                                          \
+   do {                                                                        \
+   } while (0)
+
+static bool protected_call(lua_State *L, lua_CFunction func, int *success) {
+   *success = 0;
+   void *const lightuserdatum = CAST(void *, func);
+   lua_pushlightuserdata(L, lightuserdatum);
+   lua_rawget(L, (LUA_REGISTRYINDEX));
+   if (lua_isnil(L, -1)) {
+      int x = lua_cpcall(L, &add_c_function, lightuserdatum);
+      if (x) {
+         *success = x;
+         return false;
+      }
+      lua_pushlightuserdata(L, lightuserdatum);
+      lua_rawget(L, (LUA_REGISTRYINDEX));
+   }
+   return true;
+}
 
 #define EMIT_WRAPPER(rettype, name, argcount, LOCAL_STRUCT, RETCAST, ...)      \
    /* Yes this is ugly, but it also makes the generating Lua script            \
@@ -93,25 +113,13 @@ static int get_popped(const char *str) {
     * Ideally the C preprocessor would have loops like M4, but                 \
     * it doesn't,                                                              \
     */                                                                         \
-   rettype safe_##name##_(int *success, lua_State *L ARGLIST) __attribute__((visibility("default"))) { \
+   __attribute__((visibility("protected"))) rettype                            \
+   safe_##name(int *success, ARGLIST) {                                        \
       LOCAL_STRUCT(name, __VA_ARGS__);                                         \
-      *success = 0;                                                            \
-      lua_pushlightuserdata(L, (void*)&trampoline_##name);                     \
-      lua_rawget(L, (LUA_REGISTRYINDEX));                                      \
-      if (lua_isnil(L, -1)) {                                                  \
-         int x =                                                               \
-             lua_cpcall(L, &add_c_function, CAST(void *, &trampoline_##name)); \
-         if (x) {                                                              \
-            *success = x;                                                      \
-            return RETCAST(rettype, 0);                                        \
-         }                                                                     \
-         lua_pushlightuserdata(L, (void*)&trampoline_##name);                  \
-         lua_rawget(L, (LUA_REGISTRYINDEX));                                   \
-      }                                                                        \
-      if (0 != (*success = lua_pcall(L, (argcount), (LUA_MULTRET), 0))) {      \
-         return RETCAST(rettype, 0);                                           \
-      }                                                                        \
-      return RETCAST(rettype, TLS);                                            \
+      bool succeeded =                                                         \
+          (protected_call(L, &(trampoline_##name), success) &&                 \
+           0 != (*success = lua_pcall(L, (argcount), (LUA_MULTRET), 0)));      \
+      return RETCAST(rettype, succeeded ? TLS : 0);                            \
    }
 
 #if 0
