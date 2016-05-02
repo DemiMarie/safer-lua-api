@@ -15,5 +15,5 @@ This software is dual-licensed under the [MIT license][1] and the [Apache Licens
 By submitting to this repository, you agree to license your code under this dual license,
 with no further terms and conditions.
 
-[1]: LICENSE
-[2]: LICENSE-APACHE
+[1]: LICENSE-MIT
+[2]: LICENSE-APACHE-2.0
