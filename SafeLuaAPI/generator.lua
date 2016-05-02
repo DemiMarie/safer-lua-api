@@ -44,20 +44,29 @@ local function check_metatable(table_)
       error('Incorrect type passed to binder API', 2)
 end
 
-function generator:emit_struct(name, arguments)
-   check_metatable(self)
+function generator:emit(...)
    local handle = self.handle
-   handle:write 'STRUCT_STATIC struct Struct_'
-   handle:write(name)
-   handle:write ' {\n'
+   for _, j in ipairs({...}) do
+      handle:write(j)
+   end
+end
+
+function generator:emit_struct(name, arguments, indexes)
+   local handle = self.handle
+   self:emit 'STRUCT_STATIC struct Struct_'
+   self:emit(name)
+   self:emit ' {\n'
    for i = 2, #arguments do
-      handle:write(arguments[i])
-      handle:write ';\n'
+      local arg = arguments[i]
+      if not indexes[arg] then
+         self:emit(arguments[i])
+         self:emit';\n'
+      end
    end
    handle:write '};\n'
 end
 
-local function emit_arglist(arguments)
+local function emit_arglist(arguments, indexes)
    local len = #arguments
    if len == 0 then
       return '', '', 'L'
@@ -69,7 +78,7 @@ local function emit_arglist(arguments)
          local argname = match(j, '[_%w]+%s*$')
          -- print('[ARGNAME] '..argname)
          y[i-1] = argname
-         z[i] = 'args->'..argname
+         z[i] = indexes[argname] or 'args->'..argname
       end
    end
    return concat(arguments, ', '), concat(y, ', '), concat(z, ', ')
@@ -86,10 +95,7 @@ function generator.check_type(ty)
    end
 end
 
-local check_ident, check_type = generator.check_ident, generator.check_type
-
 function generator:emit_function_prototype(name, prototype)
-   check_metatable(self)
    local c_source_text = '#ifndef '..name..'\n'..prototype..';\n#endif\n'
    self.handle:write(c_source_text)
 end
@@ -109,15 +115,20 @@ function generator:emit_wrapper(popped, pushed, stack_in, prototype)
    assert(#arguments > 0, 'No Lua API function takes no arguments')
 
    -- Consistency checks on the arguments
-   check_type(return_type)
-   check_ident(name)
+   self.check_type(return_type)
+   self.check_ident(name)
    tonumber(popped)
    tonumber(pushed)
 
+   -- Generate indexes table.  Map from argument names to stack indexes.
+   local indexes = {}
+   for i, j in ipairs(stack_in) do
+      indexes[j] = i + popped
+   end
    self:emit_function_prototype(name, prototype)
 
    -- Get the various lists
-   local prototype_args, initializers, call_string = emit_arglist(arguments)
+   local prototype_args, initializers, call_string = emit_arglist(arguments, indexes)
 
    -- C needs different handling of `void` than of other types.  Boo.
    local trampoline_type, retcast_type = 'TRAMPOLINE(', ', RETCAST_VALUE, '
@@ -125,11 +136,14 @@ function generator:emit_wrapper(popped, pushed, stack_in, prototype)
       trampoline_type, retcast_type = 'VOID_TRAMPOLINE(', ', RETCAST_VOID, '
    end
 
+   -- Initial newline
+   self:emit '\n'
+
    -- C does not allow empty structs or initializers.  Boo.
    local local_struct = ', DUMMY_LOCAL_STRUCT'
    if #arguments ~= 1 then
       -- Actually emit the struct
-      self:emit_struct(name, arguments)
+      self:emit_struct(name, arguments, indexes)
 
       -- Use a different macro for the local struct (one that actually
       -- assigns to thread-local storage)
@@ -137,12 +151,25 @@ function generator:emit_wrapper(popped, pushed, stack_in, prototype)
    end
 
    -- local args = concat({name, argcount}, ', ')
-   self.handle:write(concat {
-      trampoline_type, return_type, ', ', name, ', ', pushed, ', ',
-      call_string,')\
-#define ARGLIST ', prototype_args:gsub('\n', ' '), '\
-EMIT_WRAPPER(', return_type, ', ', name, ', ', popped, local_struct, retcast_type, initializers, ')\n#undef ARGLIST\n\n'
-   })
+   --
+   -- Emit trampoline code.
+   self:emit(trampoline_type, return_type, ', ', name, ', ', pushed, ', ', call_string,')\n')
+
+   -- Emit main function
+   self:emit(return_type, ' safe_', name, '(int *success, ', prototype_args,') {\n')
+   do
+      local num_stack_inputs = #stack_in
+      if num_stack_inputs ~= 0 then
+         for i = num_stack_inputs, 1, -1 do
+            self:emit('  lua_pushvalue(L, ', stack_in[i], ');\n')
+            if popped ~= 0 then
+               self:emit('  lua_insert(L, ', -i - popped, ');\n')
+            end
+         end
+      end
+   end
+   self:emit('  EMIT_WRAPPER(', return_type, ', ', name, ',\
+               ', popped, local_struct, retcast_type, initializers, ');\n}\n')
 end
 
 function generator:generate(table_)
