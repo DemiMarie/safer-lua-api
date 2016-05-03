@@ -44,20 +44,14 @@ static int add_c_function(lua_State *L) {
 }
 
 #define TRAMPOLINE(rettype, name, retcount, ...)                               \
-   static int(trampoline_##name)(lua_State * L) {                              \
-      struct Struct_##name *args = CAST(struct Struct_##name *, TLS);          \
-      rettype retval = name(__VA_ARGS__);                                      \
-      int number_return_values = (retcount);                                   \
-      TLS = CAST(void *, retval);                                              \
-      return number_return_values;                                             \
-   }
+   rettype retval = name(__VA_ARGS__);                                         \
+   int number_return_values = (retcount);                                      \
+   TLS = CAST(void *, retval);                                                 \
+   return number_return_values;
 
 #define VOID_TRAMPOLINE(_, name, retcount, ...)                                \
-   static int(trampoline_##name)(lua_State * L) {                              \
-      struct Struct_##name *args = CAST(struct Struct_##name *, TLS);          \
-      name(__VA_ARGS__);                                                       \
-      return (retcount);                                                       \
-   }
+   name(__VA_ARGS__);                                                          \
+   return (retcount);                                                          \
 
 #define RETCAST_VOID(rettype, value)
 #define RETCAST_VALUE CAST
@@ -79,16 +73,6 @@ static int get_popped(const char *str) {
    }
 }
 
-#define LOCAL_STRUCT(name, ...)                                                \
-   struct Struct_##name local = {__VA_ARGS__};                                 \
-   do {                                                                        \
-      TLS = CAST(void *, &local);                                              \
-   } while (0)
-
-#define DUMMY_LOCAL_STRUCT(name, ...)                                          \
-   do {                                                                        \
-   } while (0)
-
 static bool protected_call(lua_State *L, lua_CFunction func, int *success) {
    *success = 0;
    void *const lightuserdatum = CAST(void *, func);
@@ -106,22 +90,11 @@ static bool protected_call(lua_State *L, lua_CFunction func, int *success) {
    return true;
 }
 
-#define EMIT_WRAPPER(rettype, name, argcount, LOCAL_STRUCT, RETCAST, ...)      \
-   /* Yes this is ugly, but it also makes the generating Lua script            \
-    * MUCH simpler.  So this ugly long macro stays.                            \
-    *                                                                          \
-    * Ideally the C preprocessor would have loops like M4, but                 \
-    * it doesn't,                                                              \
-    */                                                                         \
-   __attribute__((visibility("protected"))) rettype                            \
-   safe_##name(int *success, ARGLIST) {                                        \
-      LOCAL_STRUCT(name, __VA_ARGS__);                                         \
-      bool succeeded =                                                         \
-          (protected_call(L, &(trampoline_##name), success) &&                 \
-           0 != (*success = lua_pcall(L, (argcount), (LUA_MULTRET), 0)));      \
-      return RETCAST(rettype, succeeded ? TLS : 0);                            \
+#define EMIT_WRAPPER(rettype, name, argcount, RETCAST)                         \
+   bool succeeded = false;                                                     \
+   if (protected_call(L, &(trampoline_##name), success)) {                     \
+      succeeded = (*success = lua_pcall(L, (argcount), (LUA_MULTRET), 0));     \
    }
-
 #if 0
 {
 #elif defined __cplusplus
