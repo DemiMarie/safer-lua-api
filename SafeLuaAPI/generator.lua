@@ -53,12 +53,13 @@ end
 ---
 -- Emits the declaration for the temporary struct.
 -- @tparam string name The name of the Lua API function being wrapped.
--- @tparam {string, ...} arguments The arguments of the function being wrapped.
--- @tparam {string, ...} argument_names The names of the arguments of the
+-- @tparam {string,...} arguments The arguments of the function being wrapped.
+-- @tparam {string,...} argument_names The names of the arguments of the
 --   function being wrapped.
--- @tparam indexes The names of arguments that are stack indexes.
--- @treturn {string, ...} A table containing the parameters to use as the
--- initializers in the proper order.
+-- @tparam {string=number,...} indexes The names of arguments that are stack
+--   indexes.
+-- @treturn {string,...} A table containing the parameters to use as the
+--   initializers in the proper order.
 function generator:emit_struct(name, arguments, argument_names, indexes)
    self:emit('STRUCT_STATIC struct Struct_', name, ' {\n')
    local initializers = {}
@@ -119,13 +120,12 @@ end
 
 
 --- Generates a wrapper for API function `name`.
--- @tparam string name The function name.
 -- @tparam string popped The number of arguments popped from the Lua stack.
 -- @tparam string pushed The number of arguments pushed onto the Lua stack.
 -- @tparam {string,...} stack_in A list of arguments that name stack slots
 --  used by the function.
 -- @tparam string prototype The function prototype for the function.
--- @treturn string The wrapper C code for the function
+-- @treturn ()
 function generator:emit_wrapper(popped, pushed, stack_in, prototype)
    check_metatable(self)
 
