@@ -1,30 +1,50 @@
+---
+-- @author Demi Marie Obenour
+-- @module SafeLuaAPI
+-- @license MIT/X11
+-- @license Apache 2.0
+-- @copyright 2016
+local SafeLuaAPI = {}
+
 local io = io
 local require = require
 local arg = arg
 local print = print
 local os = os
-if module then
-   module 'SafeLuaAPI'
-end
 
 local generator = require 'SafeLuaAPI/generator'
 local functions = require 'SafeLuaAPI/functions'
 local finally = require 'SafeLuaAPI/finally'
-
-local function do_it(handle)
+require 'pl/strict'
+local function do_it(handle, header_handle)
    handle:write[[
 #include <luajit-2.0/lua.h>
 #include "../template.h"
+#include "bindings.h"
 ]]
-   local c_code_emitter = generator.new(handle)
+
+   header_handle:write[[
+#ifndef SAFE_LUA_API_H_INCLUDED
+#define SAFE_LUA_API_H_INCLUDED 1
+]]
+
+   assert(header_handle)
+   local c_code_emitter = generator.new(handle, header_handle)
    c_code_emitter:generate(functions.api_functions_needing_wrappers)
    --generator.generate(handle, functions.auxlib_functions_needing_wrappers)
    --generator.generate(handle, functions.debug_functions_needing_wrappers)
+header_handle:write '#endif // defined(SAFE_LUA_API_H_INCLUDED)\n'
 end
 
 local handle, err = io.open(arg[1], 'w')
 if handle then
-   do_it(handle)
+   local header_handle
+   header_handle, err = io.open(string.gsub(arg[1], '%.c$', '.h'), 'w')
+   if not header_handle then
+      print(err)
+      os.exit(1)
+   end
+   do_it(handle, header_handle)
    io.close(handle)
 else
    print(err)
