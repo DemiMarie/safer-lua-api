@@ -19,31 +19,36 @@ local _ENV = nil
 functions.api_functions_needing_wrappers = {
    -- lua_call is omitted (use lua_pcall instead)
    -- lua_call = { args = {'lua_State *L', 'int', 'int'}, retval = 'int'},
-   ['int lua_checkstack(lua_State *L, int n)'] = {
+   {
+      prototype = 'int lua_checkstack(lua_State *L, int n)',
       stack_in = {},
       popped = 0,
       pushed = 0,
    },
 
-   ['void lua_concat(lua_State *L, int n)'] = {
+   {
+      prototype = 'void lua_concat(lua_State *L, int n)',
       stack_in = {},
       popped = 'n',
       pushed = 1
    },
 
-   ['void lua_createtable(lua_State *L, int array_size, int hash_size)'] = {
+   {
+      prototype = 'void lua_createtable(lua_State *L, int array_size, int hash_size)',
       stack_in = {},
       popped = 0,
       pushed = 1
    },
 
-   ['int lua_dump(lua_State *L, lua_Writer writer, void* data)'] = {
+   {
+      prototype = 'int lua_dump(lua_State *L, lua_Writer writer, void* data)',
       stack_in = {},
       popped = 0,
       pushed = 0,
    },
 
-   ['int lua_equal(lua_State *L, int index1, int index2)'] = {
+   {
+      prototype = 'int lua_equal(lua_State *L, int index1, int index2)',
       stack_in = {'index1', 'index2'},
       popped = 0,
       pushed = 0,
@@ -57,80 +62,93 @@ functions.api_functions_needing_wrappers = {
    --    pushed = 0,
    -- },
 
-   ['int lua_gc(lua_State *L, int what, int data)'] = {
+   {
+      prototype = 'int lua_gc(lua_State *L, int what, int data)',
       stack_in = {},
       popped = 0,
       pushed = 0,
    },
 
-   ['void lua_getfield(lua_State *L, int index, const char* key)'] = {
+   {
+      prototype = 'void lua_getfield(lua_State *L, int index, const char* key)',
       stack_in = {'index'},
       popped = 0,
       pushed = 1,
    },
 
-   ['void lua_getglobal(lua_State *L, const char *name)'] = {
+   {
+      prototype = 'void lua_getglobal(lua_State *L, const char *name)',
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   ['void lua_gettable(lua_State *L, int depth)'] = {
+   {
+      prototype = 'void lua_gettable(lua_State *L, int depth)',
       stack_in = 'depth',
       popped = 1,
       pushed = 1,
    },
 
-   ['int lua_lessthan(lua_State *L, int index1, int index2)'] = {
+   {
+      prototype = 'int lua_lessthan(lua_State *L, int index1, int index2)',
       stack_in = {'index1', 'index2'},
       popped = 0,
       pushed = 0,
    },
 
-   ['void lua_newtable(lua_State *L)'] = {
+   {
+      prototype = 'void lua_newtable(lua_State *L)',
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   ['lua_State *lua_newthread(lua_State *L)'] = {
+   {
+      prototype = 'lua_State *lua_newthread(lua_State *L)',
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   ['void *lua_newuserdata(lua_State *L, size_t size)'] = {
+   {
+      prototype = 'void *lua_newuserdata(lua_State *L, size_t size)',
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   ['int lua_next(lua_State *L, int table_index)'] = {
+   {
+      prototype = 'int lua_next(lua_State *L, int table_index)',
       stack_in = 'table_index',
       popped = 1,
       pushed = '(2 * (0 != retval))',
    },
 
-   ['void lua_pushcclosure(lua_State *L, lua_CFunction function,\
-                       int number_upvalues)'] = {
+   {
+      prototype = 'void lua_pushcclosure(lua_State *L, lua_CFunction function,\
+                       int number_upvalues)',
       stack_in = {},
       popped = 'number_upvalues',
       pushed = 1,
    },
 
-   ['void lua_pushcfunction(lua_State *L, lua_CFunction function)'] = {
+   {
+      prototype = 'void lua_pushcfunction(lua_State *L, lua_CFunction function)',
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   ['void lua_pushlstring(lua_State *L, const char *string, size_t len)'] = {
+   {
+      prototype = 'void lua_pushlstring(lua_State *L, const char *string, size_t len)',
       stack_in = {},
       popped = 0,
       pushed = 1,
    },
 
-   ['void lua_pushstring(lua_State *L, const char *string)'] = {
+   {
+      prototype = 'void lua_pushstring(lua_State *L, const char *string)',
       stack_in = {},
       popped = 0,
       pushed = 1,
@@ -146,58 +164,65 @@ functions.api_functions_needing_wrappers = {
    --    pushed = 1,
    -- },
 
-   ['void lua_rawset(lua_State *L, int index)'] = {
+   {
+      prototype = 'void lua_rawset(lua_State *L, int index)',
       stack_in = 'index',
       popped = 2,
       pushed = 0,
    },
 
-   ['void lua_rawseti(lua_State *L, int index, int n)'] = {
+   {
+      prototype = 'void lua_rawseti(lua_State *L, int index, int n)',
       stack_in = 'index',
       popped = 1,
       pushed = 0,
    },
 
-   ['void lua_register(lua_State *L, const char *name, lua_CFunction function)']
-      = {
+   {
+      prototype = 'void lua_register(lua_State *L, const char *name, lua_CFunction function)',
       stack_in = {},
       popped = 0,
       pushed = 0,
    },
 
-   ['void lua_setfield(lua_State *L, int index, const char *key)'] = {
-      stack_in = 'key',
+   {
+      prototype = 'void lua_setfield(lua_State *L, int index, const char *key)',
+      stack_in = 'index',
       popped = 1,
       pushed = 0,
    },
 
-   ['void lua_setglobal(lua_State *L, char *key)'] = {
+   {
+      prototype = 'void lua_setglobal(lua_State *L, char *key)',
       stack_in = {},
       popped = 1,
       pushed = 0,
    },
 
-   ['void lua_settable(lua_State *L, int index)'] = {
+   {
+      prototype = 'void lua_settable(lua_State *L, int index)',
       stack_in = 'index',
       pushed = 0,
       popped = 2,
    },
 
-   ['const char *lua_tolstring(lua_State *L, int index, size_t *length)'] = {
+   {
+      prototype = 'const char *lua_tolstring(lua_State *L, int index, size_t *length)',
       stack_in = 'index',
       popped = 0,
       pushed = 0,
    },
 
-   ['const char *lua_tostring(lua_State *L, int index)'] = {
+   {
+      prototype = 'const char *lua_tostring(lua_State *L, int index)',
       stack_in = 'index',
       popped = 0,
       pushed = 0,
    },
 
-   -- The debug interface
-   ['int lua_getinfo(lua_State *L, const char *what,\
-                 lua_Debug *activation_record)'] = {
+   --- The debug interface
+   {
+      prototype = 'int lua_getinfo(lua_State *L, const char *what, lua_Debug *activation_record)',
       stack_in = {},
       pushed = "(args->what[0] == '<' ? 1 : 0)",
       popped = '(get_popped(what))',
@@ -237,48 +262,57 @@ functions.auxlib_functions_needing_wrappers = {
    -- Most of the argument checking functions are also omitted.  It is assumed
    -- that clients will use the provided trampoline to throw errors.
    luaL_callmeta = {
-      args = {'lua_State *L', 'int', 'CPchar'},
+      args = {'lua_State *L', 'int num_arguments', 'const char *name'},
       retval = 'int',
+      stack_in = {},
+      pushed = '?',
+      popped = 'num_arguments',
    },
+   --[[
    luaL_getmetafield = {
-      args = {'lua_State *L', 'int', 'CPchar'},
+      args = {'lua_State *L', 'int ', 'CPchar'},
       retval = 'int',
    },
    luaL_loadbuffer = {
       args = {'lua_State *L', 'CPchar', 'size_t', 'CPchar'},
       retval = 'int',
    },
-   luaL_openlibs = { args = {'lua_State *L', }},
-   luaL_newmetatable = { args = {'lua_State *L', 'char*'}, retval = 'int'},
-   luaL_ref = { args = {'lua_State *L', 'int'}, retval = 'int'},
-   luaL_loadfile = { args = {'lua_State *L', 'int', 'char*'}, retval = 'int'},
-   luaL_loadstring = { args = {'lua_State *L', 'int', 'char*'}, retval = 'int'},
-   luaL_where = { args = {'lua_State *L',  'int' }},
+   -- luaL_openlibs = { args = {'lua_State *L', }},
+   -- luaL_newmetatable = { args = {'lua_State *L', 'char*'}, retval = 'int'},
+   -- luaL_ref = { args = {'lua_State *L', 'int'}, retval = 'int'},
+   -- luaL_loadfile = { args = {'lua_State *L', 'int', 'char*'}, retval = 'int'},
+   -- luaL_loadstring = { args = {'lua_State *L', 'int', 'char*'}, retval = 'int'},
+   -- luaL_where = { args = {'lua_State *L',  'int' }}, ]]
 }
 
-local mymetatable = {}
-function mymetatable:__index(index)
-   error(format('Attempt to access non-existent field %q', index), 2)
-end
-function mymetatable:__newindex(index)
-   error(format('Attempt to create non-existent field %q', index), 2)
-end
-for _, i in pairs(functions) do
-   for _, j in pairs(i) do
-      local stack_in = j.stack_in
-      if stack_in == nil then
-         j.stack_in = {}
-      elseif type(stack_in) ~= 'table' then
-         j.stack_in = {stack_in}
-      end
-      if j.pushed == nil then
-         j.pushed = 0
-      end
-      if j.popped == nil then
-         j.popped = 0
-      end
-      setmetatable(j, mymetatable)
+local function fixup_fields(functions)
+
+   local mymetatable = {}
+   function mymetatable:__index(index)
+      error(format('Attempt to access non-existent field %q', index), 2)
    end
+   function mymetatable:__newindex(index)
+      error(format('Attempt to create non-existent field %q', index), 2)
+   end
+   for _, i in pairs(functions) do
+      for _, j in pairs(i) do
+         local stack_in = j.stack_in
+         if stack_in == nil then
+            j.stack_in = {}
+         elseif type(stack_in) ~= 'table' then
+            j.stack_in = {stack_in}
+         end
+         if j.pushed == nil then
+            j.pushed = 0
+         end
+         if j.popped == nil then
+            j.popped = 0
+         end
+         setmetatable(j, mymetatable)
+      end
+   end
+   return functions
 end
--- pretty.dump(functions)
+fixup_fields(functions)
+
 return functions
