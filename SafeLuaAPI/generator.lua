@@ -3,7 +3,7 @@
 --
 -- @author Demi Marie Obenour
 -- @copyright 2016
--- @license MIT/X11
+-- @license MIT/X11 OR Apache 2.0 (your choice)
 -- @module generator
 local generator = {}
 
@@ -28,14 +28,11 @@ local strict, err = pcall(require, 'pl/strict')
 local err, pretty = pcall(require, 'pl/pretty')
 pretty = err and pretty
 
+local ioexception = require 'SafeLuaAPI/ioexception'
 local finally = require 'SafeLuaAPI/finally'
 
 local parse_prototype = require 'SafeLuaAPI/parse_prototype'
 local parse_prototypes = parse_prototype.extract_args
-
-if pretty then
-   pretty.dump { parse_prototypes('int main(int argc, char **argv)') }
-end
 
 local metatable = { __index = generator, __metatable = nil }
 
@@ -47,41 +44,46 @@ end
 function generator:emit(...)
    local handle = self.handle
    for _, j in ipairs({...}) do
-      handle:write(j)
+      assert(handle:write(j))
    end
+   return true, nil, nil
 end
 
-function generator:emit_struct(name, arguments, indexes)
-   local handle = self.handle
-   self:emit 'STRUCT_STATIC struct Struct_'
-   self:emit(name)
-   self:emit ' {\n'
+
+---
+-- Emits the declaration for the temporary struct.
+-- @tparam string name The name of the Lua API function being wrapped.
+-- @tparam {string, ...} arguments The arguments of the function being wrapped.
+-- @tparam {string, ...} argument_names The names of the arguments of the
+--   function being wrapped.
+-- @tparam indexes The names of arguments that are stack indexes.
+-- @treturn {string, ...} A table containing the parameters to use as the
+-- initializers in the proper order.
+function generator:emit_struct(name, arguments, argument_names, indexes)
+   self:emit('STRUCT_STATIC struct Struct_', name, ' {\n')
+   local initializers = {}
+   local initializer_length = 0
    for i = 2, #arguments do
-      local arg = arguments[i]
-      if not indexes[arg] then
-         self:emit(arguments[i])
-         self:emit';\n'
+      local name = argument_names[i]
+      if not indexes[name] then
+         self:emit(arguments[i], ';\n')
+         initializer_length = initializer_length + 1
+         initializers[initializer_length] = name
       end
    end
-   handle:write '};\n'
+   self:emit '};\n'
+   assert(#initializers > 0)
+   return initializers
 end
 
-local function emit_arglist(arguments, indexes)
-   local len = #arguments
-   if len == 0 then
-      return '', '', 'L'
-   end
-   local y, z = {}, {'L'}
-   for i, j in ipairs(arguments) do
+local function emit_arglist(argument_names, indexes)
+   local z = {''}
+   for i, j in ipairs(argument_names) do
       if i ~= 1 then
-         -- print('[ARGUMENT] '..j)
-         local argname = match(j, '[_%w]+%s*$')
-         -- print('[ARGNAME] '..argname)
-         y[i-1] = argname
-         z[i] = indexes[argname] or 'args->'..argname
+         z[i] = indexes[j] or 'args->'..j
       end
    end
-   return concat(arguments, ', '), concat(y, ', '), concat(z, ', ')
+   return z
 end
 
 function generator.check_ident(ident)
@@ -95,10 +97,26 @@ function generator.check_type(ty)
    end
 end
 
-function generator:emit_function_prototype(name, prototype)
-   local c_source_text = '#ifndef '..name..'\n'..prototype..';\n#endif\n'
+function generator:emit_binding_function_prototype(prototype)
+   check_metatable(self)
+   self.header_handle:write(prototype)
+   self.header_handle:write ';\n'
+end
+
+function generator:emit_lua_function_prototype(name, prototype)
+   local c_source_text = '\n#ifndef '..name..'\n'..prototype..';\n#endif'
    self.handle:write(c_source_text)
 end
+
+function generator:emit_trampoline(name, needs_struct)
+   -- Emit trampoline code.
+   self:emit('static int trampoline_', name, '(lua_State *L) {\n')
+   if needs_struct then
+      self:emit('struct Struct_', name, ' *args = CAST(struct Struct_', name,
+                ' *, TLS);\n')
+   end
+end
+
 
 --- Generates a wrapper for API function `name`.
 -- @tparam string name The function name.
@@ -111,7 +129,8 @@ end
 function generator:emit_wrapper(popped, pushed, stack_in, prototype)
    check_metatable(self)
 
-   local return_type, name, arguments = parse_prototype.extract_args(prototype)
+   local return_type, name, arguments, argument_names, argument_types =
+      parse_prototype.extract_args(prototype)
    assert(#arguments > 0, 'No Lua API function takes no arguments')
 
    -- Consistency checks on the arguments
@@ -125,65 +144,77 @@ function generator:emit_wrapper(popped, pushed, stack_in, prototype)
    for i, j in ipairs(stack_in) do
       indexes[j] = i + popped
    end
-   self:emit_function_prototype(name, prototype)
+   self:emit_lua_function_prototype(name, prototype)
 
-   -- Get the various lists
-   local prototype_args, initializers, call_string = emit_arglist(arguments, indexes)
+   local call_string = emit_arglist(argument_names, indexes)
 
    -- C needs different handling of `void` than of other types.  Boo.
-   local trampoline_type, retcast_type = 'TRAMPOLINE(', ', RETCAST_VALUE, '
+   local trampoline_type, retcast_type = 'TRAMPOLINE(', ', RETCAST_VALUE'
    if return_type == 'void' then
-      trampoline_type, retcast_type = 'VOID_TRAMPOLINE(', ', RETCAST_VOID, '
+      trampoline_type, retcast_type = 'VOID_TRAMPOLINE(', ', RETCAST_VOID'
    end
 
    -- Initial newline
    self:emit '\n'
-
-   -- C does not allow empty structs or initializers.  Boo.
-   local local_struct = ', DUMMY_LOCAL_STRUCT'
-   if #arguments ~= 1 then
-      -- Actually emit the struct
-      self:emit_struct(name, arguments, indexes)
-
-      -- Use a different macro for the local struct (one that actually
-      -- assigns to thread-local storage)
-      local_struct = ', LOCAL_STRUCT'
-   end
-
-   -- local args = concat({name, argcount}, ', ')
-   --
-   -- Emit trampoline code.
-   self:emit(trampoline_type, return_type, ', ', name, ', ', pushed, ', ', call_string,')\n')
-
-   -- Emit main function
-   self:emit(return_type, ' safe_', name, '(int *success, ', prototype_args,') {\n')
    do
-      local num_stack_inputs = #stack_in
-      if num_stack_inputs ~= 0 then
-         for i = num_stack_inputs, 1, -1 do
-            self:emit('  lua_pushvalue(L, ', stack_in[i], ');\n')
-            if popped ~= 0 then
-               self:emit('  lua_insert(L, ', -i - popped, ');\n')
-            end
-         end
+      -- C does not allow empty structs or initializers.  Boo.
+      local needs_struct = #arguments > #stack_in + 1
+      local initializers = {}
+      if needs_struct then
+         -- At least one argument that is not a stack index.
+         -- Actually emit the struct and get the initializers.
+         initializers = self:emit_struct(name, arguments, argument_names,
+                                         indexes)
+         --needs_struct = #initializers ~= 0
+      end
+      -- local args = concat({name, argcount}, ', ')
+      self:emit_trampoline(name, needs_struct)
+      self:emit(trampoline_type, return_type, ', ', name, ', ', pushed, ', L',
+                concat(call_string, ', ') ,')\n}\n')
+
+      -- Emit main function
+      local prototype = concat {
+         return_type, ' safe_', name, '(int *success, ',
+         concat(arguments, ',') ,')' }
+      self:emit_binding_function_prototype(prototype)
+      self:emit(prototype, ' {\n')
+      if needs_struct then
+         self:emit([[
+   struct Struct_]], name, ' local = {', concat(initializers, ','), [[};
+   TLS = CAST(void *, &local);
+]])
       end
    end
-   self:emit('  EMIT_WRAPPER(', return_type, ', ', name, ',\
-               ', popped, local_struct, retcast_type, initializers, ');\n}\n')
+   for i = #stack_in, 1, -1 do
+      self:emit('   lua_pushvalue(L, ', stack_in[i], ');\n')
+      if popped ~= 0 then
+         self:emit('   lua_insert(L, ', -i - popped, ');\n')
+      end
+   end
+   self:emit('   EMIT_WRAPPER(', return_type, ', ', name, ', ',
+             popped, retcast_type, ');\n')
+   if return_type ~= 'void' then
+      self:emit('   return CAST(', return_type,
+                ', succeeded ? TLS : CAST(uintptr_t, 0));\n')
+   else
+      self:emit('   return;\n')
+   end
+   self:emit '}\n'
 end
 
 function generator:generate(table_)
    --pretty.dump(table_)
+   assert(self.handle and self.header_handle)
    check_metatable(self)
-   for i, j in pairs(table_) do
-      assert(type(i) == 'string')
-      -- print(argument_list)
-      self:emit_wrapper(j.popped, j.pushed, j.stack_in, i)
+   for _, j in ipairs(table_) do
+      self:emit_wrapper(j.popped, j.pushed, j.stack_in, j.prototype)
    end
 end
 
-function generator.new(handle)
-   return setmetatable({ handle = handle }, metatable)
+function generator.new(handle, header_handle)
+   assert(handle and header_handle)
+   return setmetatable({ handle = handle,
+                         header_handle = header_handle }, metatable)
 end
 
 local generate = generator.generate
@@ -195,4 +226,14 @@ function generator.generate_to_file(filename, table_)
    return finally.with_file(filename, 'w', generate)
 end
 
-return generator
+function generator:emit_function(prototype)
+   assert(type(prototype) == 'string')
+   return function(metadata)
+      self:emit_wrapper(metadata.popped,
+                        metadata.pushed,
+                        metadata.stack_in,
+                        prototype)
+   end
+end
+
+return setmetatable({}, metatable)
