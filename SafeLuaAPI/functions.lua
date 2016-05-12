@@ -42,7 +42,7 @@ functions.api_functions_needing_wrappers = {
 
    {
       prototype = 'int lua_dump(lua_State *L, lua_Writer writer, void* data)',
-      stack_in = {},
+      stack_in = {1},
       popped = 0,
       pushed = 0,
    },
@@ -56,7 +56,6 @@ functions.api_functions_needing_wrappers = {
 
    -- lua_error = {
    --    args = {'lua_State *L', },
-   --    retval = 'void',
    --    stack_in = {},
    --    popped = 1,
    --    pushed = 0,
@@ -126,10 +125,10 @@ functions.api_functions_needing_wrappers = {
    },
 
    {
-      prototype = 'void lua_pushcclosure(lua_State *L, lua_CFunction function,\
-                       int number_upvalues)',
+      prototype = [[
+void lua_pushcclosure(lua_State *L, lua_CFunction function, int num_upvalues)]],
       stack_in = {},
-      popped = 'number_upvalues',
+      popped = 'num_upvalues',
       pushed = 1,
    },
 
@@ -141,7 +140,8 @@ functions.api_functions_needing_wrappers = {
    },
 
    {
-      prototype = 'void lua_pushlstring(lua_State *L, const char *string, size_t len)',
+      prototype = [[
+void lua_pushlstring(lua_State *L, const char *string, size_t len)]],
       stack_in = {},
       popped = 0,
       pushed = 1,
@@ -261,6 +261,7 @@ functions.auxlib_functions_needing_wrappers = {
 
    -- Most of the argument checking functions are also omitted.  It is assumed
    -- that clients will use the provided trampoline to throw errors.
+   --[[
    luaL_callmeta = {
       args = {'lua_State *L', 'int num_arguments', 'const char *name'},
       retval = 'int',
@@ -268,7 +269,6 @@ functions.auxlib_functions_needing_wrappers = {
       pushed = '?',
       popped = 'num_arguments',
    },
-   --[[
    luaL_getmetafield = {
       args = {'lua_State *L', 'int ', 'CPchar'},
       retval = 'int',
@@ -277,6 +277,7 @@ functions.auxlib_functions_needing_wrappers = {
       args = {'lua_State *L', 'CPchar', 'size_t', 'CPchar'},
       retval = 'int',
    },
+   ]]
    -- luaL_openlibs = { args = {'lua_State *L', }},
    -- luaL_newmetatable = { args = {'lua_State *L', 'char*'}, retval = 'int'},
    -- luaL_ref = { args = {'lua_State *L', 'int'}, retval = 'int'},

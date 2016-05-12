@@ -43,18 +43,15 @@ static int add_c_function(lua_State *L) {
    return 0;
 }
 
-#define TRAMPOLINE(rettype, name, retcount, ...)                               \
-   rettype retval = name(__VA_ARGS__);                                         \
-   int number_return_values = (retcount);                                      \
-   TLS = CAST(void *, retval);                                                 \
+#define TRAMPOLINE(rettype, name, retcount, ...)                       \
+   rettype retval = name(__VA_ARGS__);                                 \
+   int number_return_values = (retcount);                              \
+   TLS = CAST(void *, CAST(uintptr_t, (retval)));                      \
    return number_return_values;
 
-#define VOID_TRAMPOLINE(_, name, retcount, ...)                                \
-   name(__VA_ARGS__);                                                          \
-   return (retcount);                                                          \
-
-#define RETCAST_VOID(rettype, value)
-#define RETCAST_VALUE CAST
+#define VOID_TRAMPOLINE(_, name, retcount, ...)                        \
+   name(__VA_ARGS__);                                                  \
+   return (retcount);
 
 static int get_popped(const char *str) {
    bool seen_f = false, seen_L = false;
@@ -73,7 +70,7 @@ static int get_popped(const char *str) {
    }
 }
 
-static bool protected_call(lua_State *L, lua_CFunction func, int *success) {
+static bool protected_call(lua_State *L, lua_CFunction func, int *success, int argcount) {
    *success = 0;
    void *const lightuserdatum = CAST(void *, func);
    lua_pushlightuserdata(L, lightuserdatum);
@@ -87,14 +84,11 @@ static bool protected_call(lua_State *L, lua_CFunction func, int *success) {
       lua_pushlightuserdata(L, lightuserdatum);
       lua_rawget(L, (LUA_REGISTRYINDEX));
    }
-   return true;
+   return (*success = lua_pcall(L, (argcount), (LUA_MULTRET), 0)) == 0;
 }
 
-#define EMIT_WRAPPER(rettype, name, argcount, RETCAST)                         \
-   bool succeeded = false;                                                     \
-   if (protected_call(L, &(trampoline_##name), success)) {                     \
-      succeeded = (*success = lua_pcall(L, (argcount), (LUA_MULTRET), 0));     \
-   }
+#define EMIT_WRAPPER(rettype, name, argcount) \
+   (protected_call(L, &(trampoline_##name), success, argcount))
 #if 0
 {
 #elif defined __cplusplus

@@ -18,14 +18,29 @@
   } else                                                                       \
   ((void)0)
 #if !defined __cplusplus || __cplusplus < 201103L
-#define nullptr((void *)0)
+#define nullptr ((void *)0)
 #endif
 #ifdef __cplusplus
 extern "C" {
+using std::intptr_t;
+using std::ssize_t;
+using std::size_t;
+using std::uintptr_t;
 #endif
 #if 0
 }
 #endif
+
+typedef struct {
+  lua_CFunction func;
+  void *ud;
+  ssize_t num_types;
+  int max_stack_slots;
+  char const *name;
+  unsigned char *types;
+  bool success;
+} luaS_SafeCFunction_;
+
 /**
  * @brief luaS_call_gate serves as a call gate.  Behavior is undefined
  * unless called by Lua, either as a C function or via
@@ -46,15 +61,16 @@ extern "C" {
  */
 static int luaS_call_gate(lua_State *L) {
   luaS_SafeCFunction *func =
-      (luaS_SafeCFunction)lua_touserdata(L, lua_upvalueindex(1));
-  luaL_checkstack(L, func->max_stack_slots, "Cannot grow stack to");
+      (luaS_SafeCFunction *)lua_touserdata(L, lua_upvalueindex(1));
+  if (func->max_stack_slots != 0) {
+     luaL_checkstack(L, func->max_stack_slots, "Cannot grow stack to");
+  }
 
   // Check types of incoming arguments
   for (size_t i = 1; i < func->num_types; ++i) {
-    if (LUA_TNONE == func->types[i]) {
-      continue;
+    if (LUA_TNONE != func->types[i]) {
+      luaL_checktype(L, i, func->types[i]);
     }
-    luaL_checktype(L, i, func->types[i]);
   }
   int result = func->func(L);
   if (result >= 0) {
@@ -65,7 +81,7 @@ static int luaS_call_gate(lua_State *L) {
     return lua_yield(L, -2 - result);
   }
 }
-
+#if 0
 /**
  * @brief luaS__registerclosure
  * @param L the Lua state
@@ -83,7 +99,8 @@ static int luaS__registerclosure(lua_State *L) {
   return 1;
 }
 
-/// Registers the @code{luaS__registerclosure} function
+/**
+ * Registers the `luaS__registerclosure` function */
 static int luaS__registerclosure_(lua_State *L) {
   lua_checkstack(L, LUA_MINSTACK + 3);
   lua_CFunction func = lua_touserdata(L, -1);
@@ -104,16 +121,6 @@ int luaS_pushcclosure(lua_State *L, lua_CFunction func, lua_CFunction finalizer,
   lua_pushlightuserdata(L, func);
   return lua_pcall(L, n, LUA_MULTRET, 0);
 }
-
-typedef struct {
-  lua_CFunction func;
-  void *ud;
-  ssize_t num_types;
-  int max_stack_slots;
-  char const *name;
-  unsigned char *types;
-  bool success;
-} luaS_SafeCFunction_;
 
 // Throw a Lua error containing a userdata holding the safe C function
 static int luaS_pushSafeCFunction_(lua_State *L) {
@@ -171,3 +178,5 @@ lua_State *luaS_newstate(void) {
 #ifdef __cplusplus
 }
 #endif
+#endif
+

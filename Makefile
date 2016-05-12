@@ -44,7 +44,8 @@ clean:
 	rm -rf -- $(call shell_quote,$(BUILDDIR))
 
 docs:
-	ldoc SafeLuaAPI/generator.lua SafeLuaAPI/parse_prototype.lua SafeLuaAPI/finally.lua
+	ldoc SafeLuaAPI/generator.lua SafeLuaAPI/parse_prototype.lua \
+	   SafeLuaAPI/finally.lua
 	mv -- SafeLuaAPI/doc $(call shell_quote,$(BUILDDIR))
 
 -include $(BUILDDIR)/*.dep

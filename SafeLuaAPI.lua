@@ -33,7 +33,7 @@ local function do_it(handle, header_handle)
    c_code_emitter:generate(functions.api_functions_needing_wrappers)
    --generator.generate(handle, functions.auxlib_functions_needing_wrappers)
    --generator.generate(handle, functions.debug_functions_needing_wrappers)
-header_handle:write '#endif // defined(SAFE_LUA_API_H_INCLUDED)\n'
+   header_handle:write '#endif // !defined(SAFE_LUA_API_H_INCLUDED)\n'
 end
 
 local handle, err = io.open(arg[1], 'w')

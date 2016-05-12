@@ -7,6 +7,7 @@
 -- @module generator
 local generator = {}
 
+-- Local versions of global variables
 local require = require
 local concat = table.concat
 local assert = assert
@@ -23,27 +24,29 @@ local pcall, xpcall = pcall, xpcall
 local print, error = print, error
 local getmetatable, setmetatable = getmetatable, setmetatable
 
-require 'pl/strict'
+-- Require pl/strict.  But don't bail out if it is absent, since it
+-- is not really required.
 local strict, err = pcall(require, 'pl/strict')
-local err, pretty = pcall(require, 'pl/pretty')
-pretty = err and pretty
 
-local ioexception = require 'SafeLuaAPI/ioexception'
 local finally = require 'SafeLuaAPI/finally'
 
 local parse_prototype = require 'SafeLuaAPI/parse_prototype'
 local parse_prototypes = parse_prototype.extract_args
 
+-- Metatable for objects used by this library
 local metatable = { __index = generator, __metatable = nil }
 
+-- Consistency check for argument validation
 local function check_metatable(table_)
    return getmetatable(table_) == metatable or
       error('Incorrect type passed to binder API', 2)
 end
 
+---
+-- Emit all of its arguments to the current handle.
 function generator:emit(...)
    local handle = self.handle
-   for _, j in ipairs({...}) do
+   for _, j in ipairs {...} do
       assert(handle:write(j))
    end
    return true, nil, nil
@@ -87,6 +90,9 @@ local function emit_arglist(argument_names, indexes)
    return z
 end
 
+---
+-- Check if `ident` is a C identifier
+-- @tparam string ident The string to check for being a C identifier
 function generator.check_ident(ident)
    return find(ident, '^[_%a][_%w]*$') or
       error(('String %q is not an identifier'):format(ident))
@@ -149,10 +155,9 @@ function generator:emit_wrapper(popped, pushed, stack_in, prototype)
    local call_string = emit_arglist(argument_names, indexes)
 
    -- C needs different handling of `void` than of other types.  Boo.
-   local trampoline_type, retcast_type = 'TRAMPOLINE(', ', RETCAST_VALUE'
-   if return_type == 'void' then
-      trampoline_type, retcast_type = 'VOID_TRAMPOLINE(', ', RETCAST_VOID'
-   end
+   local trampoline_type = return_type == 'void'
+      and 'VOID_TRAMPOLINE('
+      or 'TRAMPOLINE('
 
    -- Initial newline
    self:emit '\n'
@@ -191,8 +196,11 @@ function generator:emit_wrapper(popped, pushed, stack_in, prototype)
          self:emit('   lua_insert(L, ', -i - popped, ');\n')
       end
    end
-   self:emit('   EMIT_WRAPPER(', return_type, ', ', name, ', ',
-             popped, retcast_type, ');\n')
+   if return_type ~= 'void' then
+      self:emit 'uintptr_t succeeded = '
+   end
+   self:emit('protected_call(L, &trampoline_', name,' , success, ',
+      popped, ');\n')
    if return_type ~= 'void' then
       self:emit('   return CAST(', return_type,
                 ', succeeded ? TLS : CAST(uintptr_t, 0));\n')
@@ -203,7 +211,6 @@ function generator:emit_wrapper(popped, pushed, stack_in, prototype)
 end
 
 function generator:generate(table_)
-   --pretty.dump(table_)
    assert(self.handle and self.header_handle)
    check_metatable(self)
    for _, j in ipairs(table_) do
