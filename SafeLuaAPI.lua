@@ -15,10 +15,12 @@ local os = os
 local generator = require 'SafeLuaAPI/generator'
 local functions = require 'SafeLuaAPI/functions'
 local finally = require 'SafeLuaAPI/finally'
-require 'pl/strict'
+pcall(require, 'pl/strict')
 local function do_it(handle, header_handle)
    handle:write[[
+/* THIS IS A GENERATED FILE.  DO NOT EDIT. */
 #include <luajit-2.0/lua.h>
+#include <luajit-2.0/lauxlib.h>
 #include "../template.h"
 #include "bindings.h"
 ]]

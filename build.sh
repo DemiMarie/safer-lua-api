@@ -8,18 +8,19 @@ case $0 in
           printf "Entering directory '%s'\n" "${0%/*}/";;
     (*)   : ;;
 esac
-
-generated_file=generated.c
-#trap 'rm -f -- "$generated_file"' EXIT
-lua  -- SafeLuaAPI.lua "$generated_file"
-"$CC" "$generated_file" -I. -C -E -std=c11 -D_FORTIFY_SOURCE=1000 > generated.i
-
-shared_flags='-fPIC -fvisibility=hidden -Bsymbolic -Wl,-z,now,-z,relro'
-
-"$CC" "$generated_file" -I. -o bindings.o -Wall -Wextra -Wshadow  \
-      -pedantic-errors \
-       -g3 -c -fPIC
-
-"$CC" bindings.o -shared -o bindings.so $shared_flags
-rm bindings.a -f
-ar rs bindings.a bindings.o
+set +e
+generator='Unix Makefiles'
+while getopts G: arg; do
+  case $arg in
+    (G) generator=$OPTARG;;
+    (\-) # End of options
+        break 2;;
+    (:) eval 'printf "Missing argument to option '\'%s\''\\n" "$'$OPTIND\"; exit 1;;
+  esac
+done
+shift $OPTIND
+set -e
+mkdir -p build
+cd build
+cmake -G "$generator" ..
+cmake --build . --clean-first

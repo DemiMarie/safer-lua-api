@@ -10,12 +10,13 @@ local parse_prototype = {}
 local assert = assert
 local print = print
 local gfind = string.gfind
+local pcall = pcall
 
 if module then
    module 'parse_prototype'
 end
 
-local pretty = require 'pl/pretty'
+local pretty = pcall(require, 'pl/pretty')
 local _ENV = {}
 
 function parse_prototype.extract_args(str)

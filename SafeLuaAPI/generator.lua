@@ -70,7 +70,7 @@ function generator:emit_struct(name, arguments, argument_names, indexes)
    for i = 2, #arguments do
       local name = argument_names[i]
       if not indexes[name] then
-         self:emit(arguments[i], ';\n')
+         self:emit('   ', arguments[i], ';\n')
          initializer_length = initializer_length + 1
          initializers[initializer_length] = name
       end
@@ -115,15 +115,23 @@ function generator:emit_lua_function_prototype(name, prototype)
    self.handle:write(c_source_text)
 end
 
-function generator:emit_trampoline(name, needs_struct)
+local function emit_trampoline(self, name, needs_struct)
    -- Emit trampoline code.
    self:emit('static int trampoline_', name, '(lua_State *L) {\n')
    if needs_struct then
-      self:emit('struct Struct_', name, ' *args = CAST(struct Struct_', name,
+      self:emit('   struct Struct_', name, ' *args = CAST(struct Struct_', name,
                 ' *, TLS);\n')
    end
 end
 
+local function handle_stack(self, stack_in, popped)
+   for i = #stack_in, 1, -1 do
+      self:emit('   lua_pushvalue(L, ', stack_in[i], ');\n')
+      if popped ~= 0 then
+         self:emit('   lua_insert(L, ', -i - popped, ');\n')
+      end
+   end
+end
 
 --- Generates a wrapper for API function `name`.
 -- @tparam string popped The number of arguments popped from the Lua stack.
@@ -132,7 +140,7 @@ end
 --  used by the function.
 -- @tparam string prototype The function prototype for the function.
 -- @treturn ()
-function generator:emit_wrapper(popped, pushed, stack_in, prototype)
+function generator:emit_wrapper(popped, pushed, stack_in, prototype, name_to_emit)
    check_metatable(self)
 
    local return_type, name, arguments, argument_names, argument_types =
@@ -156,8 +164,8 @@ function generator:emit_wrapper(popped, pushed, stack_in, prototype)
 
    -- C needs different handling of `void` than of other types.  Boo.
    local trampoline_type = return_type == 'void'
-      and 'VOID_TRAMPOLINE('
-      or 'TRAMPOLINE('
+      and '   VOID_TRAMPOLINE('
+      or '   TRAMPOLINE('
 
    -- Initial newline
    self:emit '\n'
@@ -173,13 +181,15 @@ function generator:emit_wrapper(popped, pushed, stack_in, prototype)
          --needs_struct = #initializers ~= 0
       end
       -- local args = concat({name, argcount}, ', ')
-      self:emit_trampoline(name, needs_struct)
+      emit_trampoline(self, name, needs_struct)
       self:emit(trampoline_type, return_type, ', ', name, ', ', pushed, ', L',
-                concat(call_string, ', ') ,')\n}\n')
-
+                concat(call_string, ', ') ,');\n}\n')
+      do
+         name_to_emit = name_to_emit or 'safe_'..name
+      end
       -- Emit main function
       local prototype = concat {
-         return_type, ' safe_', name, '(int *success, ',
+         return_type, ' ', name_to_emit, '(int *success, ',
          concat(arguments, ',') ,')' }
       self:emit_binding_function_prototype(prototype)
       self:emit(prototype, ' {\n')
@@ -190,12 +200,8 @@ function generator:emit_wrapper(popped, pushed, stack_in, prototype)
 ]])
       end
    end
-   for i = #stack_in, 1, -1 do
-      self:emit('   lua_pushvalue(L, ', stack_in[i], ');\n')
-      if popped ~= 0 then
-         self:emit('   lua_insert(L, ', -i - popped, ');\n')
-      end
-   end
+   handle_stack(self, stack_in, popped)
+   self:emit '   '
    if return_type ~= 'void' then
       self:emit 'uintptr_t succeeded = '
    end
@@ -214,7 +220,7 @@ function generator:generate(table_)
    assert(self.handle and self.header_handle)
    check_metatable(self)
    for _, j in ipairs(table_) do
-      self:emit_wrapper(j.popped, j.pushed, j.stack_in, j.prototype)
+      self:emit_wrapper(j.popped, j.pushed, j.stack_in, j.prototype, j.name)
    end
 end
 
@@ -239,7 +245,8 @@ function generator:emit_function(prototype)
       self:emit_wrapper(metadata.popped,
                         metadata.pushed,
                         metadata.stack_in,
-                        prototype)
+                        prototype,
+                        metadata.name)
    end
 end
 

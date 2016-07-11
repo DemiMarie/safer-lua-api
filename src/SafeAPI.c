@@ -149,6 +149,7 @@ bool luaS_pushSafeCFunction(lua_State *L, lua_CFunction func, void *ud,
   return val.success;
 }
 
+#if 0
 lua_State *luaS_newstate(void) {
   lua_State *L = luaL_newstate();
   if (nullptr == L) {
@@ -172,7 +173,6 @@ lua_State *luaS_newstate(void) {
     assert(0 && "Lua returned invalid error code");
   }
 }
-#if 0
 {
 #endif
 #ifdef __cplusplus

@@ -27,7 +27,7 @@ all: $(BUILDDIR)/bindings.so $(BUILDDIR)/bindings.a
 	$(AR) rc $(target) $(source)
 
 %.o: %.c
-	$(CC) -MMD -MP -MF$(target).dep -c -o $(target) \
+	$(CC) $(CFLAGS) -MMD -MP -MF$(target).dep -c -o $(target) \
 	$(source) -fPIC $(warnings)
 
 $(BUILDDIR)/bindings.c: SafeLuaAPI.lua SafeLuaAPI/*.lua $(BUILDDIR)

@@ -6,7 +6,7 @@
 -- @module functions
 local functions = {}
 
-local pairs, type, setmetatable, error = pairs, type, setmetatable, error
+local assert, pairs, type, setmetatable, error = assert, pairs, type, setmetatable, error
 local format = string.format
 local pretty = pcall(require, 'pl/pretty')
 if module then
@@ -20,7 +20,8 @@ functions.api_functions_needing_wrappers = {
    -- lua_call is omitted (use lua_pcall instead)
    -- lua_call = { args = {'lua_State *L', 'int', 'int'}, retval = 'int'},
    {
-      prototype = 'int lua_checkstack(lua_State *L, int n)',
+      prototype = 'int safe_lua_checkstack_impl(lua_State *L, int n)',
+      name = 'safe_lua_checkstack',
       stack_in = {},
       popped = 0,
       pushed = 0,
@@ -233,51 +234,40 @@ void lua_pushlstring(lua_State *L, const char *string, size_t len)]],
 functions.auxlib_functions_needing_wrappers = {
    -- The auxillary library
    -- The buffer related functions are omitted.  It is assumed that any
-   -- higher level language will have its own buffer facilities.
-   --
-   -- luaL_addchar = {
-   --    args = {'luaL_Buffer *B', 'char c'},
-   --    retval = 'void',
-   --    stack_in = {},
-   --    pushed = 0,
-   --    popped = 0,
-   -- },
-
-   -- luaL_addlstring = {
-   --    args = {'luaL_Buffer *B', 'const char *string', 'size_t size'},
-   --    retval = 'void',
-   --    stack_in = {},
-   --    pushed = 0,
-   --    popped = 0,
-   -- },
-
-   -- luaL_addsize = {
-   --    args = {'luaL_Buffer *B', 'size_t size'},
-   --    retval = 'void',
-   --    stack_in = {},
-   --    pushed = 0,
-   --    popped = 0,
-   -- },
+   -- higher level language will have its own buffer facilities, and their use
+   -- of the Lua stack is completely incompatible with this wrapper's.
 
    -- Most of the argument checking functions are also omitted.  It is assumed
    -- that clients will use the provided trampoline to throw errors.
-   --[[
-   luaL_callmeta = {
-      args = {'lua_State *L', 'int num_arguments', 'const char *name'},
-      retval = 'int',
+   {
+      prototype = 'void luaL_argcheck(lua_State *L, int cond, int narg, const char *extramsg)',
       stack_in = {},
-      pushed = '?',
-      popped = 'num_arguments',
+      pushed = 0,
+      popped = 0,
    },
-   luaL_getmetafield = {
-      args = {'lua_State *L', 'int ', 'CPchar'},
-      retval = 'int',
+
+   {
+      prototype = 'int luaL_argerror (lua_State *L, int narg, const char *extramsg)',
+      stack_in = {},
+      pushed = 0,
+      popped = 0,
    },
-   luaL_loadbuffer = {
-      args = {'lua_State *L', 'CPchar', 'size_t', 'CPchar'},
-      retval = 'int',
+
+   {
+      prototype = 'int luaL_callmeta (lua_State *L, int obj, const char *e)',
+      stack_in = {'obj'},
+      pushed = '(retval != 0)',
+      popped = 0,
    },
-   ]]
+
+   {
+      prototype = 'int luaL_getmetafield (lua_State *L, int obj, const char *e)',
+      stack_in = {'obj'},
+      pushed = '(retval != 0)',
+      popped = 0,
+   },
+
+   -- luaL_gsub is omitted because it assumes NUL-terminated strings
    -- luaL_openlibs = { args = {'lua_State *L', }},
    -- luaL_newmetatable = { args = {'lua_State *L', 'char*'}, retval = 'int'},
    -- luaL_ref = { args = {'lua_State *L', 'int'}, retval = 'int'},
@@ -306,6 +296,9 @@ local function fixup_fields(functions)
          if j.pushed == nil then
             j.pushed = 0
          end
+         if j.name == nil then
+            j.name = false
+         end
          if j.popped == nil then
             j.popped = 0
          end
@@ -317,3 +310,45 @@ end
 fixup_fields(functions)
 
 return functions
+   --
+   -- {
+   --    prototype = 'void luaL_addchar (luaL_Buffer *B, char c)'
+   --    retval = 'void',
+   --    stack_in = {},
+   --    pushed = 0,
+   --    popped = 0,
+   -- },
+
+   -- { 
+   --    prototype = 'void luaL_addlstring (luaL_Buffer *B, const char *s, size_t l)', 
+   --    stack_in = {},
+   --    pushed = 0,
+   --    popped = 0,
+   -- },
+
+   -- {
+   --    prototype = 'void luaL_addsize (luaL_Buffer *B, size_t n)',
+   --    stack_in = {},
+   --    pushed = 0,
+   --    popped = 0,
+   -- },
+
+   -- {
+   --    prototype = 'void luaL_addstring (luaL_Buffer *B, const char *s)';
+   --    stack_in = {},
+   --    pushed = 0,
+   --    popped = 0,
+   -- },
+   --
+   -- {
+   --    prototype = 'void luaL_addvalue (luaL_Buffer *B)'
+   --    stack_in = {},
+   --    pushed = 0,
+   --    popped = 1,
+   -- },
+   --
+   -- {
+   --    prototype = 'void luaL_buffinit (lua_State *L, luaL_Buffer *B)'
+   --    stack_in = {},
+
+ 

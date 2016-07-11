@@ -1,13 +1,19 @@
+#ifndef TEMPLATE_H_INCLUDED
+#define TEMPLATE_H_INCLUDED
 #include <stdint.h>
+#include <assert.h>
+
+#include <luajit-2.0/lua.h>
+#include <luajit-2.0/lauxlib.h>
+
 #ifdef __cplusplus
 extern "C" {
 #if 0
 }
 #endif
-
 #define STRUCT_STATIC static
 
-#define CAST(a, b) (static_cast<(a)>(b))
+#define CAST(a, b) (reinterpret_cast<a>(b))
 
 #if __cplusplus >= 201103L
 thread_local static void *TLS;
@@ -47,11 +53,11 @@ static int add_c_function(lua_State *L) {
    rettype retval = name(__VA_ARGS__);                                 \
    int number_return_values = (retcount);                              \
    TLS = CAST(void *, CAST(uintptr_t, (retval)));                      \
-   return number_return_values;
+   do { return number_return_values; } while (0)
 
 #define VOID_TRAMPOLINE(_, name, retcount, ...)                        \
    name(__VA_ARGS__);                                                  \
-   return (retcount);
+   do { return (retcount); } while (0)
 
 static int get_popped(const char *str) {
    bool seen_f = false, seen_L = false;
@@ -87,10 +93,28 @@ static bool protected_call(lua_State *L, lua_CFunction func, int *success, int a
    return (*success = lua_pcall(L, (argcount), (LUA_MULTRET), 0)) == 0;
 }
 
+static int safe_lua_checkstack_impl(lua_State *L, int unused) {
+   assert(unused == 0);
+   unsigned local = (unsigned)TLS;
+   int count = CAST(int, local);
+   if (!lua_checkstack(L, count)) {
+      luaL_error(L, "memory error");
+   }
+   for (int i = 0; i < count; ++i) {
+      lua_pushnil(L);
+   }
+   return count;
+}
+
+#define TLS_INIT(name, ...)                                \
+   name local = { __VA_ARGS__ };                           \
+   do { TLS.funcname_ ## name = &local; } while (0)
+
+#if 0
 #define EMIT_WRAPPER(rettype, name, argcount) \
    (protected_call(L, &(trampoline_##name), success, argcount))
-#if 0
 {
 #elif defined __cplusplus
 }
 #endif
+#endif // !defined TEMPLATE_H_INCLUDED
