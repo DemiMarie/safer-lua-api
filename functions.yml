@@ -1,0 +1,93 @@
+Basic Library:
+   lua_checkstack:
+      args: ['n int']
+      retval: int
+      stack_in: [1]
+      popped: 0
+      pushed: 0
+   lua_concat:
+      args: ['n int']
+      retval: int
+      stack_in: [n]
+      popped: n
+      pushed: [1]
+   lua_createtable:
+      args: ['array_size int', 'hash_size int']
+      retval: void
+      stack_in: []
+      popped: 0
+      pushed: [1]
+   lua_dump:
+      args: {writer: lua_Writer, user_data: void*}
+      retval: void
+      stack_in: []
+      pushed: []
+      popped: []
+   lua_equal:
+      args: {first: int, second: int}
+      pushed: []
+      retval: int
+      stack_in: [first, second]
+   lua_gc:
+      args: {first_arg: int, second_arg: int}
+      pushed: []
+      retval: void
+      stack_in: []
+   lua_getfield:
+      args: {depth: int, name: char*}
+      pushed: 1
+      stack_in: [depth]
+      retval: void
+   lua_getglobal:
+      args: {name: char*}
+      pushed: 1
+      stack_in: []
+      retval: void
+   lua_gettable:
+      args: {depth: int}
+      stack_in: [depth]
+      retval: void
+      pushed: 1
+   lua_lessthan:
+      args: {first: int, second: int}
+      retval: int
+      stack_in: [first, second]
+      popped: 0
+      pushed: 0
+   # lua_newtable skipped, not needed
+   lua_newuserdata:
+      args: {size: size_t}
+      retval: void*
+      stack_in: []
+      popped: 0
+      pushed: 1
+   lua_next:
+      args: {index: 'int'}
+      retval: int
+      stack_in: index
+      popped: 1
+      pushed: 2
+   lua_pushcclosure:
+      args: {function: lua_CFunction, upvalues: int}
+      retval: void
+      stack_in: copy_stack(upvalues)
+      pushed: 1
+   # lua_pushcfunction skipped -- duplicate
+   lua_pushlstring:
+      args: { string: const char*, size: size_t }
+      retval: void
+      stack_in: []
+      pushed: 1
+   lua_pushvfstring:
+      args: { string: const char* }
+      retval: void
+      stack_in: []
+      pushed: 1
+   lua_rawset:
+      args: { index: int }
+      retval: void
+      stack_in: [-1, index]
+      popped: 2
+      pushed: 1
+   lua_rawseti:
+      args: { index: int }

@@ -1,14 +1,15 @@
-<functions xmlns='https://github.com/drbo/safer-lua-api'>
+<functions><!-- xmlns='https://github.com/drbo/safer-lua-api' -->
   <function
       stack_in=""
       popped="0"
       pushed='0'
-      prototype='int lua_checkstack(int n)'/>
+      prototype='int lua_checkstack(int n)'
+      ignore='true'>Ensures that the stack has capacity for n' elements</function>
   <function
       stack_in=''
       popped='n'
       pushed='1'
-      prototype='void lua_concat(lua_State *L, int n)'/>
+      prototype='void lua_concat(lua_State *L, int n)'>Concatenates 2 strings on the stack</function>
   <function
       stack_in=''
       popped='0'

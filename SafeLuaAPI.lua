@@ -26,6 +26,7 @@ local function do_it(handle, header_handle)
 ]]
 
    header_handle:write[[
+/* THIS IS A GENERATED FILE.  DO NOT EDIT. */
 #ifndef SAFE_LUA_API_H_INCLUDED
 #define SAFE_LUA_API_H_INCLUDED 1
 ]]

@@ -30,3 +30,14 @@
 
 # Debug files
 *.dSYM/
+
+# Backup files
+*~
+\#*#
+.*.swp
+
+# Build directory
+build/
+
+# Documentationd directory
+doc/

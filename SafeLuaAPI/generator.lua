@@ -3,7 +3,7 @@
 --
 -- @author Demi Marie Obenour
 -- @copyright 2016
--- @license MIT/X11 OR Apache 2.0 (your choice)
+-- @license MIT/X11 OR Apache 2.0 OR Boost OR ISC (your choice)
 -- @module generator
 local generator = {}
 
