@@ -5,9 +5,11 @@
 
 /* C vs C++ checks */
 #ifdef __cplusplus
-# extern "C" {
+extern "C" {
 #elif !defined __STDC_LIMIT_MACROS
 # define __STDC_LIMIT_MACROS 1
+#elif 0
+}
 #endif
 
 #include <stdint.h>
@@ -44,27 +46,27 @@
 #endif
 
 typedef enum {
-	LUAS_TNONE = LUA_TNONE,
-	LUAS_TNIL = LUA_TNIL,
-	LUAS_TBOOLEAN = LUA_TBOOLEAN,
-	LUAS_TLIGHTUSERDATA = LUA_TLIGHTUSERDATA,
-	LUAS_TNUMBER = LUA_TNUMBER,
-	LUAS_TSTRING = LUA_TSTRING,
-	LUAS_TTABLE = LUA_TTABLE,
-	LUAS_TFUNCTION = LUA_TFUNCTION,
-	LUAS_TUSERDATA = LUA_TUSERDATA,
+   LUAS_TNONE = LUA_TNONE,
+   LUAS_TNIL = LUA_TNIL,
+   LUAS_TBOOLEAN = LUA_TBOOLEAN,
+   LUAS_TLIGHTUSERDATA = LUA_TLIGHTUSERDATA,
+   LUAS_TNUMBER = LUA_TNUMBER,
+   LUAS_TSTRING = LUA_TSTRING,
+   LUAS_TTABLE = LUA_TTABLE,
+   LUAS_TFUNCTION = LUA_TFUNCTION,
+   LUAS_TUSERDATA = LUA_TUSERDATA,
 } luaS_type;
 
 /**
  * @class luaS_CFunction "SafeAPI.h"
  */
 typedef struct {
-	lua_CFunction func;          ///< The function
-	void *ud;                    ///< Arbitrary callback
-	ssize_t num_types;           ///< Number of types, or -1 for no count
-	int max_stack_slots;         ///< Max. stack slots used by the function
-	char const *name;            ///< Name of the function
-	unsigned char types[];       ///< Types of the function
+   lua_CFunction func;          ///< The function
+   void *ud;                    ///< Arbitrary callback
+   ssize_t num_types;           ///< Number of types, or -1 for no count
+   int max_stack_slots;         ///< Max. stack slots used by the function
+   char const *name;            ///< Name of the function
+   unsigned char types[];       ///< Types of the function
 } luaS_SafeCFunction;
 
 /**
@@ -84,18 +86,17 @@ typedef void *luaS_CFuncFinalizer(luaS_SafeCFunction *);
  * @param types An array of chars representing Lua types.
  * @return @code{true} on success, @code{false} on out-of-memory.
  */
-LUAS_API bool luaS_pushSafeCFunction(lua_State *L,
-												 lua_CFunction func,
-												 void *ud,
-												 ssize_t num_types,
-												 int max_stack_slots,
-												 char const *name,
-												 unsigned char *types);
+LUAS_API bool luaS_pushSafeCFunction(lua_State *L, lua_CFunction func,
+      void *ud,
+      ssize_t num_types,
+      int max_stack_slots,
+      char const *name,
+      unsigned char *types);
 
 /**
-  * @brief create a Lua state with associated resources
-  * @return the Lua state, or NULL on error
-  */
+ * @brief create a Lua state with associated resources
+ * @return the Lua state, or NULL on error
+ */
 LUAS_API lua_State *luaS_newstate(void);
 
 /**
@@ -106,7 +107,9 @@ LUAS_API lua_State *luaS_newstate(void);
  * @return
  */
 LUAS_API int luaS_pushcclosure(lua_State *L, lua_CFunction func,
-										 lua_CFunction finalizer, uint8_t n);
-#ifdef __cplusplus
+      lua_CFunction finalizer, uint8_t n);
+#if 0
+{
+#elif defined __cplusplus
 }
 #endif
