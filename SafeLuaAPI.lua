@@ -6,16 +6,17 @@
 -- @copyright 2016
 local SafeLuaAPI = {}
 
-local io = io
-local require = require
-local arg = arg
-local print = print
-local os = os
+local string, assert, io, require, arg, print, os, pcall =
+      string, assert, io, require, arg, print, os, pcall
 
 local generator = require 'SafeLuaAPI/generator'
 local functions = require 'SafeLuaAPI/functions'
 local finally = require 'SafeLuaAPI/finally'
+
+
 pcall(require, 'pl/strict')
+
+
 local function do_it(handle, header_handle)
    handle:write[[
 /* THIS IS A GENERATED FILE.  DO NOT EDIT. */
@@ -28,7 +29,7 @@ local function do_it(handle, header_handle)
    header_handle:write[[
 /* THIS IS A GENERATED FILE.  DO NOT EDIT. */
 #ifndef SAFE_LUA_API_H_INCLUDED
-#define SAFE_LUA_API_H_INCLUDED 1
+#define SAFE_LUA_API_H_INCLUDED SAFE_LUA_API_H_INCLUDED
 ]]
 
    assert(header_handle)
