@@ -12,10 +12,10 @@
 #include <luajit.h>
 #endif
 #include <stdbool.h>
-#define CHECK(x)                                                               \
-   if (NULL == (x)) {                                                          \
-      return NULL;                                                             \
-   } else                                                                      \
+#define CHECK(x)         \
+   if (NULL == (x)) {    \
+      return NULL;       \
+   } else                \
    ((void)0)
 #if !defined __cplusplus || __cplusplus < 201103L
 #define nullptr((void *) 0)
@@ -30,6 +30,8 @@ using std::uintptr_t;
 #if 0
 }
 #endif
+
+THREAD_LOCAL luaS_SafeCFunction *func;
 
 typedef struct {
    lua_CFunction func;
@@ -52,19 +54,17 @@ typedef struct {
  *   indicates success.  The return value is passed unchanged.
  * - If the return value is -1, the top of the stack is thrown as a
  *   Lua error.
- * - If the return value is a negative number `x` other than -1,
+ * - If the return value is a negative number \p x other than -1,
  *   then `(-2) - x` values are popped, and the function yields
  *   this many values to Lua.
  *
- * @param L The <pre>lua_State</pre>.
+ * @param L The \p lua_State.
  * @return A value only useful to Lua.
  */
 static int luaS_call_gate(lua_State *L) {
    luaS_SafeCFunction *func =
        (luaS_SafeCFunction *)lua_touserdata(L, lua_upvalueindex(1));
-   if (func->max_stack_slots != 0) {
-      luaL_checkstack(L, func->max_stack_slots, "Cannot grow stack to");
-   }
+   luaL_checkstack(L, func->max_stack_slots, "Cannot grow stack to");
 
    // Check types of incoming arguments
    for (size_t i = 1; i < func->num_types; ++i) {
@@ -72,51 +72,56 @@ static int luaS_call_gate(lua_State *L) {
          luaL_checktype(L, i, func->types[i]);
       }
    }
+   // Register the needed closure
+   lua_pushlightuserdata(L, &luaS__registerclosure);
+   lua_pushcfunction(L, &luaS__registerclosure);
+   lua_settable(L, LUA_REGISTRYINDEX);
+
    int result = func->func(L);
    if (result >= 0) {
       return result;
-   } else if (-1 == result) { /* Error occurred */
-      return lua_error(L);
+   } else if (result == INT_MIN) { /* Error occurred */
+      return lua_error(L); /* Does not return */
    } else { /* Yield to Lua */
-      return lua_yield(L, -2 - result);
+      return lua_yield(L, ~result); /* Note that overflow is not possible */
    }
 }
 /**
- * @brief luaS__registerclosure
- * @param L the Lua state
- * @return 1
+ * \brief luaS__registerclosure
  * This function converts the first element of the stack to a lightuserdata,
  * which it treats as a lua_CFunction.  It then pops this lightuserdata and
  * calls `lua_pushcclosure(L, &luaS_call_gate, count)`, where
  * `count` is the size of the stack this function was passed.
+ * \param L the Lua state
+ * \return 1, unless Lua throws a memory error (in which case this
+ * function never returns).
  */
-static int luaS__registerclosure(lua_State *L) {
-   int count = lua_gettop(L) - 1;
-   lua_pop(L, 1);
-   lua_pushcclosure(L, &luaS_call_gate, count);
+static int luaS__registerclosure(lua_State *L, luaS_SafeCFunction *S, int count) {
+   int count = lua_gettop(L);
+   luaL_checkstack(L, count + 1);
+   memcpy(lua_newuserdata(L, sizeof(*S)), S, sizeof(*S));
+   lua_insert(L, count + 1);
+   lua_pushcclosure(L, &luaS_call_gate, count + 1)
    return 1;
 }
 
 /**
  * Registers the `luaS__registerclosure` function */
 static int luaS__registerclosure_(lua_State *L) {
-   lua_checkstack(L, LUA_MINSTACK + 3);
-   lua_CFunction func = lua_touserdata(L, -1);
-   lua_pop(L, 1);
+   if (defined LUAJIT_VERSION && ((uintptr_t)(&luaS__registerclosure)) >=
+        (1ULL << 48)) {
+      return luaL_error("Cannot register luaS__registerclosure: "
+                        "address too high!");
+   }
    lua_pushlightuserdata(L, &luaS__registerclosure);
-   lua_pushcfunction(L, func);
+   lua_pushcfunction(L, &luaS__registerclosure);
    lua_rawset(L, LUA_REGISTRYINDEX);
+   return 0;
 }
 
-int luaS_pushcclosure(lua_State *L, lua_CFunction func, lua_CFunction finalizer,
-                      uint8_t n) {
-   assert(n > 0);
-   assert(lua_gettop(L) >= n);
-   assert(lua_checkstack(L, 3));
+int luaS_pushcclosure(lua_State *L, luaS_SafeCFunction func, uint8_t n) {
    lua_pushlightuserdata(L, &luaS__registerclosure);
    lua_rawget(L, LUA_REGISTRYINDEX);
-   lua_insert(L, -n); // Ensure that there are n values above this lua_CFunction
-   lua_pushlightuserdata(L, func);
    return lua_pcall(L, n, LUA_MULTRET, 0);
 }
 
@@ -142,36 +147,16 @@ bool luaS_pushSafeCFunction(lua_State *L, lua_CFunction func, void *ud,
                             const char *name, unsigned char *types) {
    luaS_SafeCFunction_ val = {func, ud,    num_types, max_stack_slots,
                               name, types, false};
-   bool enough_stack = lua_checkstack(L, 1);
-   assert(enough_stack);
+#ifndef LUAJIT_VERSION
    lua_cpcall(L, &luaS_pushSafeCFunction_, &val);
+#else
+   lua_cpcall(L, &luaS_pushSafeCFunction_, &val);
+#endif
    return val.success;
 }
 
+
 #if 0
-lua_State *luaS_newstate(void) {
-  lua_State *L = luaL_newstate();
-  if (nullptr == L) {
-    return nullptr;
-  }
-#if LUA_VERSION_NUM <= 501 || defined LUAJIT_VERSION
-  int errorcode =
-      lua_cpcall(L, &luaS__registerclosure_, &luaS__registerclosure);
-#else
-  lua_pushcfunction(L, &luaS__registerclosure_);
-  lua_pushlightuserdata(L, &luaS__registerclosure);
-  int errorcode = lua_pcall(L, 1, 0, 0);
-#endif
-  switch (errorcode) {
-  case 0:
-    return L;
-  case LUA_ERRMEM: /* Out of memory */
-    lua_close(L);
-    return NULL;
-  default:
-    assert(0 && "Lua returned invalid error code");
-  }
-}
 {
 #endif
 #ifdef __cplusplus
