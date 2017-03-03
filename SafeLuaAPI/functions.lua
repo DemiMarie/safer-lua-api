@@ -13,7 +13,12 @@ if module then
    module 'functions'
 end
 local _ENV = nil
-
+local function single_push(x)
+   return { prototype = x, pushed = 1 }
+end
+local function proto(x)
+   return { prototype = x }
+end
 
 --- The functions needing wrappers in the main library
 functions.api_functions_needing_wrappers = {
@@ -22,64 +27,42 @@ functions.api_functions_needing_wrappers = {
    {
       prototype = 'int safe_lua_checkstack_impl(lua_State *L, int n)',
       name = 'safe_lua_checkstack',
-      stack_in = {},
-      popped = 0,
-      pushed = 0,
    },
 
    {
       prototype = 'void lua_concat(lua_State *L, int n)',
-      stack_in = {},
       popped = 'n',
       pushed = 1
    },
 
-   {
-      prototype = 'void lua_createtable(lua_State *L, int array_size, int hash_size)',
-      stack_in = {},
-      popped = 0,
-      pushed = 1
-   },
+   single_push 'void lua_createtable(lua_State *L, int array_size, int hash_size)',
 
    {
       prototype = 'int lua_dump(lua_State *L, lua_Writer writer, void* data)',
-      stack_in = {1},
-      popped = 0,
-      pushed = 0,
+      stack_in = 1,
    },
 
    {
       prototype = 'int lua_equal(lua_State *L, int index1, int index2)',
       stack_in = {'index1', 'index2'},
-      popped = 0,
-      pushed = 0,
    },
 
    -- lua_error = {
    --    args = {'lua_State *L', },
    --    stack_in = {},
    --    popped = 1,
-   --    pushed = 0,
    -- },
 
-   {
-      prototype = 'int lua_gc(lua_State *L, int what, int data)',
-      stack_in = {},
-      popped = 0,
-      pushed = 0,
-   },
+   proto 'int lua_gc(lua_State *L, int what, int data)',
 
    {
       prototype = 'void lua_getfield(lua_State *L, int index, const char* key)',
-      stack_in = {'index'},
-      popped = 0,
+      stack_in = 'index',
       pushed = 1,
    },
 
    {
       prototype = 'void lua_getglobal(lua_State *L, const char *name)',
-      stack_in = {},
-      popped = 0,
       pushed = 1,
    },
 
@@ -93,28 +76,20 @@ functions.api_functions_needing_wrappers = {
    {
       prototype = 'int lua_lessthan(lua_State *L, int index1, int index2)',
       stack_in = {'index1', 'index2'},
-      popped = 0,
-      pushed = 0,
    },
 
    {
       prototype = 'void lua_newtable(lua_State *L)',
-      stack_in = {},
-      popped = 0,
       pushed = 1,
    },
 
    {
       prototype = 'lua_State *lua_newthread(lua_State *L)',
-      stack_in = {},
-      popped = 0,
       pushed = 1,
    },
 
    {
       prototype = 'void *lua_newuserdata(lua_State *L, size_t size)',
-      stack_in = {},
-      popped = 0,
       pushed = 1,
    },
 
@@ -126,32 +101,25 @@ functions.api_functions_needing_wrappers = {
    },
 
    {
-      prototype = [[
-void lua_pushcclosure(lua_State *L, lua_CFunction function, int num_upvalues)]],
-      stack_in = {},
+      prototype = 'void lua_pushcclosure(lua_State *L,\
+      lua_CFunction function, int num_upvalues)',
       popped = 'num_upvalues',
       pushed = 1,
    },
 
    {
       prototype = 'void lua_pushcfunction(lua_State *L, lua_CFunction function)',
-      stack_in = {},
-      popped = 0,
       pushed = 1,
    },
 
    {
       prototype = [[
 void lua_pushlstring(lua_State *L, const char *string, size_t len)]],
-      stack_in = {},
-      popped = 0,
       pushed = 1,
    },
 
    {
       prototype = 'void lua_pushstring(lua_State *L, const char *string)',
-      stack_in = {},
-      popped = 0,
       pushed = 1,
    },
 
@@ -161,7 +129,6 @@ void lua_pushlstring(lua_State *L, const char *string, size_t len)]],
    --    args = {'lua_State *L', 'const char *fmt', 'va_list argp'},
    --    retval = 'const char *',
    --    stack_in = {},
-   --    popped = 0,
    --    pushed = 1,
    -- },
 
@@ -169,62 +136,47 @@ void lua_pushlstring(lua_State *L, const char *string, size_t len)]],
       prototype = 'void lua_rawset(lua_State *L, int index)',
       stack_in = 'index',
       popped = 2,
-      pushed = 0,
    },
 
    {
       prototype = 'void lua_rawseti(lua_State *L, int index, int n)',
       stack_in = 'index',
       popped = 1,
-      pushed = 0,
    },
 
    {
       prototype = 'void lua_register(lua_State *L, const char *name, lua_CFunction function)',
-      stack_in = {},
-      popped = 0,
-      pushed = 0,
    },
 
    {
       prototype = 'void lua_setfield(lua_State *L, int index, const char *key)',
       stack_in = 'index',
       popped = 1,
-      pushed = 0,
    },
 
    {
       prototype = 'void lua_setglobal(lua_State *L, char *key)',
-      stack_in = {},
       popped = 1,
-      pushed = 0,
    },
 
    {
       prototype = 'void lua_settable(lua_State *L, int index)',
       stack_in = 'index',
-      pushed = 0,
-      popped = 2,
    },
 
    {
       prototype = 'const char *lua_tolstring(lua_State *L, int index, size_t *length)',
       stack_in = 'index',
-      popped = 0,
-      pushed = 0,
    },
 
    {
       prototype = 'const char *lua_tostring(lua_State *L, int index)',
       stack_in = 'index',
-      popped = 0,
-      pushed = 0,
    },
 
    --- The debug interface
    {
       prototype = 'int lua_getinfo(lua_State *L, const char *what, lua_Debug *activation_record)',
-      stack_in = {},
       pushed = "(args->what[0] == '<' ? 1 : 0)",
       popped = '(get_popped(what))',
    },
@@ -241,30 +193,22 @@ functions.auxlib_functions_needing_wrappers = {
    -- that clients will use the provided trampoline to throw errors.
    {
       prototype = 'void luaL_argcheck(lua_State *L, int cond, int narg, const char *extramsg)',
-      stack_in = {},
-      pushed = 0,
-      popped = 0,
    },
 
    {
       prototype = 'int luaL_argerror (lua_State *L, int narg, const char *extramsg)',
-      stack_in = {},
-      pushed = 0,
-      popped = 0,
    },
 
    {
       prototype = 'int luaL_callmeta (lua_State *L, int obj, const char *e)',
       stack_in = {'obj'},
       pushed = '(retval != 0)',
-      popped = 0,
    },
 
    {
       prototype = 'int luaL_getmetafield (lua_State *L, int obj, const char *e)',
       stack_in = {'obj'},
       pushed = '(retval != 0)',
-      popped = 0,
    },
 
    -- luaL_gsub is omitted because it assumes NUL-terminated strings
