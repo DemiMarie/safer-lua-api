@@ -15,7 +15,7 @@ while getopts G: arg; do
     (G) generator=$OPTARG;;
     (\-) # End of options
         break 2;;
-    (:) eval 'printf "Missing argument to option '\'%s\''\\n" "$'$OPTIND\"; exit 1;;
+    (:) printf "Missing argument to option '%s'\n" "${$OPTIND}"; exit 1;;
   esac
 done
 shift $OPTIND

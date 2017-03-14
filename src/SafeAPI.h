@@ -61,12 +61,13 @@ typedef enum {
  * @class luaS_CFunction "SafeAPI.h"
  */
 typedef struct {
-   lua_CFunction func;          ///< The function
-   void *ud;                    ///< Arbitrary callback
-   ssize_t num_types;           ///< Number of types, or -1 for no count
-   int max_stack_slots;         ///< Max. stack slots used by the function
-   char const *name;            ///< Name of the function
-   unsigned char types[];       ///< Types of the function
+   lua_CFunction func;    //! The function
+   void *ud;              //! Arbitrary callback
+   ssize_t num_types;     //! Number of types, or -1 for no count
+   int max_stack_slots;   //! Maximum stack slots used by the function
+   char const *name;      //! Name of the function
+   void (*finalizer)(lua_CFunction func, void *ud); //! Optional finalizer
+   unsigned char types[]; //! Types of the function
 } luaS_SafeCFunction;
 
 /**
@@ -78,13 +79,13 @@ typedef void *luaS_CFuncFinalizer(luaS_SafeCFunction *);
 /**
  * @brief luaS_pushSafeCFunction
  * @param L the lua_State
- * @param ud arbitrary @code{void*} passed
+ * @param ud arbitrary \p void* passed
  * @param num_types The number of types passed to this function
  * @param max_stack_slots The maximum number of slots on the Lua stack this
  * function will use.
  * @param name The name of the function.
  * @param types An array of chars representing Lua types.
- * @return @code{true} on success, @code{false} on out-of-memory.
+ * @return \p true on success, \p false on out-of-memory.
  */
 LUAS_API bool luaS_pushSafeCFunction(lua_State *L, lua_CFunction func,
       void *ud,
@@ -92,6 +93,21 @@ LUAS_API bool luaS_pushSafeCFunction(lua_State *L, lua_CFunction func,
       int max_stack_slots,
       char const *name,
       unsigned char *types);
+/**
+ * \brief allocate using a Lua state's allocation function.
+ * \param L the \p lua_State.
+ * \param size the amount of memory to allocate.
+ * \return The memory allocated, or \p NULL on error.
+ */
+LUAS_API void *luaS_alloc(lua_State *L, size_t size);
+
+/**
+ * \brief Free memory allocated by \ref luaS_alloc.
+ * \param L the \p lua_State.
+ * \param size The size that was passed to \ref luaS_alloc.
+ * \param ptr The pointer to free.
+ */
+LUAS_API void *luaS_free(lua_State *L, void *ptr, size_t size);
 
 /**
  * @brief create a Lua state with associated resources

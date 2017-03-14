@@ -69,13 +69,13 @@ static int luaS_call_gate(lua_State *L) {
 }
 
 /**
- * @brief luaS__registerclosure
- * @param L the Lua state
+ * @brief luaS__registerclosure registers the luaS_call_gate function.
+ * @param L the Lua state.
  * @return 1
  * This function converts the first element of the stack to a lightuserdata,
  * which it treats as a lua_CFunction.  It then pops this lightuserdata and
  * calls `lua_pushcclosure(L, &luaS_call_gate, count);`, where
- * @code{count} is the size of the stack this function was passed.
+ * @p count is the size of the stack this function was passed.
  */
 static int luaS__registerclosure(lua_State *L) {
    int count = lua_gettop(L) - 1;
@@ -89,8 +89,8 @@ static int luaS__registerclosure_(lua_State *L) {
    lua_checkstack(L, LUA_MINSTACK + 3);
    lua_CFunction func = lua_touserdata(L, -1);
    lua_pop(L, 1);
-   lua_pushlightuserdata(L, &luaS__registerclosure);
    lua_pushcfunction(L, func);
+   lua_pushlightuserdata(L, &luaS__registerclosure);
    lua_rawset(L, LUA_REGISTRYINDEX);
 }
 
@@ -103,7 +103,7 @@ int luaS_pushcclosure(lua_State *L, lua_CFunction func, lua_CFunction finalizer,
    lua_rawget(L, LUA_REGISTRYINDEX);
    lua_insert(L, -n); // Ensure that there are n values above this lua_CFunction
    lua_pushlightuserdata(L, func);
-   return lua_pcall(L, n, LUA_MULTRET, 0);
+   return lua_pcall(L, n, 1, 0);
 }
 
 typedef struct {
@@ -149,6 +149,9 @@ lua_State *luaS_newstate(void) {
    if (nullptr == L) {
       return nullptr;
    }
+#ifdef LUAJIT_VERSION
+   assert((uint64_t)&luaS__registerclosure <= 1ULL << 47);
+#endif
 #if LUA_VERSION_NUM <= 501 || defined LUAJIT_VERSION
    int errorcode =
        lua_cpcall(L, &luaS__registerclosure_, &luaS__registerclosure);

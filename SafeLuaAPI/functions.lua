@@ -113,8 +113,7 @@ functions.api_functions_needing_wrappers = {
    },
 
    {
-      prototype = [[
-void lua_pushlstring(lua_State *L, const char *string, size_t len)]],
+      prototype = 'void lua_pushlstring(lua_State *L, const char *string, size_t len)',
       pushed = 1,
    },
 
@@ -144,9 +143,7 @@ void lua_pushlstring(lua_State *L, const char *string, size_t len)]],
       popped = 1,
    },
 
-   {
-      prototype = 'void lua_register(lua_State *L, const char *name, lua_CFunction function)',
-   },
+   proto 'void lua_register(lua_State *L, const char *name, lua_CFunction function)',
 
    {
       prototype = 'void lua_setfield(lua_State *L, int index, const char *key)',

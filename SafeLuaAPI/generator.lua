@@ -31,6 +31,11 @@ local strict, err = pcall(require, 'pl/strict')
 local finally = require 'SafeLuaAPI/finally'
 
 local parse_prototype = require 'SafeLuaAPI/parse_prototype'
+
+if module then
+   module 'generator'
+end
+
 local parse_prototypes = parse_prototype.extract_args
 
 -- Metatable for objects used by this library
@@ -220,7 +225,7 @@ function generator:generate(table_)
    assert(self.handle and self.header_handle)
    check_metatable(self)
    for _, j in ipairs(table_) do
-      self:emit_wrapper(j.popped, j.pushed, j.stack_in, j.prototype, j.name)
+      self:emit_wrapper(j.popped or 0, j.pushed or 0, j.stack_in, j.prototype, j.name)
    end
 end
 

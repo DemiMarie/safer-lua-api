@@ -1,5 +1,5 @@
 #ifndef TEMPLATE_H_INCLUDED
-#define TEMPLATE_H_INCLUDED
+#define TEMPLATE_H_INCLUDED TEMPLATE_H_INCLUDED
 #include <stdint.h>
 #include <assert.h>
 
@@ -97,9 +97,7 @@ static int safe_lua_checkstack_impl(lua_State *L, int unused) {
    assert(unused == 0);
    unsigned local = (unsigned)TLS;
    int count = CAST(int, local);
-   if (!lua_checkstack(L, count)) {
-      luaL_error(L, "memory error");
-   }
+   luaL_checkstack(L, count, "ran out of stack");
    for (int i = 0; i < count; ++i) {
       lua_pushnil(L);
    }
